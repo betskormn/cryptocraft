@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8080
 
 spring:
   application:
@@ -9,11 +9,9 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
     service-url:
-      defaultZone: http://localhost:8081/eureka
+      defaultZone: http://localhost:8080/eureka
 
-#logging:
-#  pattern:
-#    console: '%C{1.} [%-5level] %d{HH:mm:ss} - %msg%n'
-#  level:
-#    netflix.eureka: OFF
-#    netflix.discovery: OFF
+logging:
+  level:
+    netflix.eureka: OFF
+    netflix.discovery: OFF

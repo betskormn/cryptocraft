@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: inventory-service
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
@@ -19,3 +21,11 @@ liquibase:
       username: postgres
       password: mysecretpassword
       driver: org.postgresql.Driver
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8080/eureka
+
+server:
+  port: 0

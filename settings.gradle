@@ -1,3 +1,5 @@
 rootProject.name = 'cryptocraft'
 
 includeBuild 'eureka-server'
+includeBuild 'inventory-service'
+includeBuild 'api-gateway'
