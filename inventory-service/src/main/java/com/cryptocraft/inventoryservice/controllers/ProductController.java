@@ -4,20 +4,27 @@ import com.cryptocraft.inventoryservice.controllers.dto.request.ProductRequestDt
 import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponseDto;
 import com.cryptocraft.inventoryservice.services.ProductService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/product")
+@RequestMapping("/inventory/product")
 public class ProductController {
 
     private final ProductService productService;
+    @Value("${eureka.instance.instance-id}")
+    private String id;
 
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
+    @GetMapping("test")
+    public String test (){
+        return id;
+    }
 
     @PostMapping
     public ProductResponseDto createProduct(@RequestBody @Valid ProductRequestDto requestDto) {
