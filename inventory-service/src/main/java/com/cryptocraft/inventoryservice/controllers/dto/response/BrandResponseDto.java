@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class BrandResponseDto {
 
-    private Long id;
+    private Long brandId;
     private String name;
 }
