@@ -1,10 +1,6 @@
 spring:
   application:
     name: inventory-service
-  datasource:
-    url: jdbc:postgresql://postgres:5432/postgres
-    username: postgres
-    password: mysecretpassword
   jpa:
     hibernate:
       ddl-auto: none
@@ -17,17 +13,11 @@ liquibase:
   activities:
     main:
       changeLogFile: src/main/resources/db/changelog/db.changelog-master.yaml
-      url: jdbc:postgresql://postgres:5432/postgres
-      username: postgres
-      password: mysecretpassword
       driver: org.postgresql.Driver
 
 eureka:
   instance:
     instance-id: ${spring.application.name}:${random.uuid}
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
 
 server:
   port: 0

@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: mysecretpassword
+  jpa:
+    show-sql: true
+
+liquibase:
+  activities:
+    main:
+      url: jdbc:postgresql://localhost:5432/postgres
+      username: postgres
+      password: mysecretpassword
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
