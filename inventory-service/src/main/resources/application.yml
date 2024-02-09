@@ -2,7 +2,7 @@ spring:
   application:
     name: inventory-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres
+    url: jdbc:postgresql://postgres:5432/postgres
     username: postgres
     password: mysecretpassword
   jpa:
@@ -17,7 +17,7 @@ liquibase:
   activities:
     main:
       changeLogFile: src/main/resources/db/changelog/db.changelog-master.yaml
-      url: jdbc:postgresql://localhost:5432/postgres
+      url: jdbc:postgresql://postgres:5432/postgres
       username: postgres
       password: mysecretpassword
       driver: org.postgresql.Driver
