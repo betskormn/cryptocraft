@@ -1,11 +1,22 @@
 package com.cryptocraft.inventoryservice.controllers.dto.request;
 
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import com.cryptocraft.inventoryservice.dao.enums.Type;
+import lombok.*;
+
+import java.util.List;
 
 @Data
-@RequiredArgsConstructor
 public class ItemRequestDto {
 
-    private Long id;
+    private String name;
+    private String recipe;
+    private String image;
+    private Type type;
+    private List<ItemProductDto> products;
+
+    @Data
+    public static class ItemProductDto {
+        private Long productId;
+        private int quantity;
+    }
 }

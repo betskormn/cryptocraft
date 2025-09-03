@@ -4,17 +4,17 @@ import com.cryptocraft.inventoryservice.config.converters.TypeConverter;
 import com.cryptocraft.inventoryservice.dao.enums.Type;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 @Getter
 @Setter
 @Builder
-@ToString
+@ToString(exclude = {"products"})
 @RequiredArgsConstructor
 @AllArgsConstructor
 @Entity
@@ -31,20 +31,33 @@ public class Item extends AuditingEntity implements Serializable {
     private String image;
     @Convert(converter = TypeConverter.class)
     private Type type;
-    @OneToMany(mappedBy = "productId", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-    @Fetch(value = FetchMode.JOIN)
-    private List<Product> products;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "item_products",
+            joinColumns = @JoinColumn(name = "item_id"),
+            inverseJoinColumns = @JoinColumn(name = "product_id")
+    )
+    private List<Product> products = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (o == null) return false;
+
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+
         Item item = (Item) o;
-        return Objects.equals(itemId, item.itemId) && Objects.equals(name, item.name) && Objects.equals(recipe, item.recipe) && Objects.equals(image, item.image) && Objects.equals(type, item.type) && Objects.equals(products, item.products);
+        return itemId != null && Objects.equals(itemId, item.itemId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(itemId, name, recipe, image, type, products);
+        return getClass().hashCode();
     }
 }

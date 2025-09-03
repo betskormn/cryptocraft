@@ -11,6 +11,7 @@ import com.cryptocraft.inventoryservice.dao.Brand;
 import com.cryptocraft.inventoryservice.dao.Item;
 import com.cryptocraft.inventoryservice.dao.Product;
 import ma.glasnost.orika.*;
+import ma.glasnost.orika.converter.BidirectionalConverter;
 import ma.glasnost.orika.converter.ConverterFactory;
 import ma.glasnost.orika.impl.DefaultMapperFactory;
 import ma.glasnost.orika.metadata.ClassMapBuilder;
@@ -18,6 +19,8 @@ import ma.glasnost.orika.metadata.Type;
 import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 public class MappingConfiguration {
@@ -98,6 +101,8 @@ public class MappingConfiguration {
 
     @Bean
     MapperFacade mapperFacade(final MapperFactory factory) {
+        factory.classMap(Product.class, ProductResponseDto.class).byDefault().register();
+        factory.classMap(Item.class, ItemResponseDto.class).byDefault().register();
         return factory.getMapperFacade();
     }
 }
