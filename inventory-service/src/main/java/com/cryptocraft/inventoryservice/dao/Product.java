@@ -1,7 +1,7 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import com.cryptocraft.inventoryservice.dao.enums.Unit;
-import com.cryptocraft.inventoryservice.config.converters.UnitConverter;
+import com.cryptocraft.inventoryservice.config.converters.TypeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -18,7 +18,6 @@ import java.util.Objects;
 @AllArgsConstructor
 @Entity
 @Table(name = "products")
-
 public class Product extends AuditingEntity implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,9 +29,8 @@ public class Product extends AuditingEntity implements Serializable {
     private String image;
     @Column(nullable = false)
     private int quantityInStock;
-    @Convert(converter = UnitConverter.class)
-    private Unit unit;
-    private Long brandId;
+    @Convert(converter = TypeConverter.class)
+    private Unit unit;    private Long brandId;
 
     @Override
     public final boolean equals(Object o) {

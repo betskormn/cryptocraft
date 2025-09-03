@@ -16,9 +16,15 @@ import static java.util.stream.Collectors.toMap;
 public enum Unit {
 
     LITERS(1),
-    KILOGRAMS(2),
+    MILLILITERS(2),
     BOTTLES(3),
-    PORTION(4);
+    GRAMS(4),
+    KILOGRAMS(5),
+    PORTION(6),
+    PIECE(7),
+    BOWL(8),
+    GLASS(9),
+    SHOT(10);
 
     private final Integer id;
 

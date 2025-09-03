@@ -2,10 +2,13 @@ package com.cryptocraft.inventoryservice.config;
 
 import com.cryptocraft.inventoryservice.config.converters.InstantToDateConverter;
 import com.cryptocraft.inventoryservice.controllers.dto.request.BrandRequestDto;
+import com.cryptocraft.inventoryservice.controllers.dto.request.ItemRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.request.ProductRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.BrandResponseDto;
+import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponseDto;
 import com.cryptocraft.inventoryservice.dao.Brand;
+import com.cryptocraft.inventoryservice.dao.Item;
 import com.cryptocraft.inventoryservice.dao.Product;
 import ma.glasnost.orika.*;
 import ma.glasnost.orika.converter.ConverterFactory;
@@ -51,6 +54,19 @@ public class MappingConfiguration {
     @Bean
     Mapper<BrandRequestDto, Brand> brandRequestDtoToBrandtMapper(final MapperFactory factory) {
         return toRegisteredMapper(factory.classMap(BrandRequestDto.class, Brand.class)
+                .mapNulls(true)
+                .byDefault());
+    }
+
+    @Bean
+    Mapper<Item, ItemResponseDto> itemToItemResponseDtoMapper(final MapperFactory factory) {
+        return toRegisteredMapper(factory.classMap(Item.class, ItemResponseDto.class)
+                .byDefault());
+    }
+
+    @Bean
+    Mapper<ItemRequestDto, Item> itemRequestDtoToItemMapper(final MapperFactory factory) {
+        return toRegisteredMapper(factory.classMap(ItemRequestDto.class, Item.class)
                 .mapNulls(true)
                 .byDefault());
     }

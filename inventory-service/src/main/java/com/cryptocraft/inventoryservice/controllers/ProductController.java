@@ -21,6 +21,7 @@ public class ProductController {
         this.productService = productService;
     }
 
+    //todo delete it in future
     @GetMapping("test")
     public String test (){
         return id;
@@ -32,7 +33,7 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<ProductResponseDto> getAllItems() {
+    public List<ProductResponseDto> getAllProducts() {
         return productService.getAllProducts();
     }
 
@@ -48,6 +49,6 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     public void deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
+        productService.deleteProductById(id);
     }
 }
