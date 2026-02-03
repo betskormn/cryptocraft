@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   eureka-server:
     image: docker.io/library/eureka-server:0.0.1-SNAPSHOT
@@ -21,7 +19,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     networks:
       - cryptocraft-network
 
@@ -62,4 +60,4 @@ networks:
   cryptocraft-network:
 
 volumes:
-  postgres-data:
+  postgres_data:

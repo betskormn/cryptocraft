@@ -1,14 +1,16 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.2.2'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
 }
 
 group = 'com.cryptocraft'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    sourceCompatibility = '21'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 configurations {
@@ -21,25 +23,24 @@ repositories {
     mavenCentral()
 }
 
-ext {
-    set('springCloudVersion', "2023.0.0")
-}
-
 dependencies {
+    implementation platform(project(':platform'))
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-    annotationProcessor 'org.projectlombok:lombok'
-    implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.1'
-    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-data-jpa', version: '3.2.2'
-    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-validation', version: '3.2.2'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.liquibase:liquibase-core'
-    implementation group: 'ma.glasnost.orika', name: 'orika-core', version: '1.5.4'
-    implementation group: 'javax.validation', name: 'validation-api', version: '2.0.0.Final'
-    implementation group: 'org.springframework.cloud', name: 'spring-cloud-starter-netflix-eureka-client', version: '4.1.0'
-}
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    implementation 'ma.glasnost.orika:orika-core'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // (Опційно) OpenAPI — якщо додав у platform, тут просто підключаєш без версії
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+    runtimeOnly 'org.springframework.boot:spring-boot-docker-compose'
 }
