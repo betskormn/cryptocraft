@@ -1,4 +1,7 @@
 spring:
+  docker:
+    compose:
+      lifecycle-management: none
   datasource:
     url: jdbc:postgresql://postgres:5432/postgres
     username: postgres
