@@ -42,7 +42,7 @@ public class BrandController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<BrandResponseDto> createBrand(@RequestBody @Valid BrandRequestDto requestDto) {
         BrandResponseDto created = brandService.createBrand(requestDto);
-        URI location = URI.create("/api/v1/brands/" + created.getBrandId());
+        URI location = URI.create("/api/v1/brands/" + created.brandId());
         return ResponseEntity.created(location).body(created);
     }
 

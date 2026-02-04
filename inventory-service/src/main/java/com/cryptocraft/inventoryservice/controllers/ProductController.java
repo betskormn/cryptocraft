@@ -42,7 +42,7 @@ public class ProductController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ProductResponseDto> createProduct(@RequestBody @Valid ProductRequestDto requestDto) {
         ProductResponseDto created = productService.createProduct(requestDto);
-        URI location = URI.create("/api/v1/products/" + created.getProductId());
+        URI location = URI.create("/api/v1/products/" + created.productId());
         return ResponseEntity.created(location).body(created);
     }
 

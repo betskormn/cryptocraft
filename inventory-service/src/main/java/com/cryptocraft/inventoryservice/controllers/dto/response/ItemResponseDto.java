@@ -1,15 +1,16 @@
 package com.cryptocraft.inventoryservice.controllers.dto.response;
 
-import lombok.Data;
-
 import java.util.List;
 
-@Data
-public class ItemResponseDto {
-    private Long itemId;
-    private String name;
-    private String recipe;
-    private String image;
-    private String type;
-    private List<ProductResponseDto> products;
+public record ItemResponseDto(
+        Long itemId,
+        String name,
+        String recipe,
+        String image,
+        String type,
+        List<ProductResponseDto> products
+) {
+    public ItemResponseDto {
+        products = (products == null) ? List.of() : List.copyOf(products);
+    }
 }

@@ -42,7 +42,7 @@ public class ItemController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ItemResponseDto> createItem(@RequestBody @Valid ItemRequestDto requestDto) {
         ItemResponseDto created = itemService.createItem(requestDto);
-        URI location = URI.create("/api/v1/items/" + created.getItemId());
+        URI location = URI.create("/api/v1/items/" + created.itemId());
         return ResponseEntity.created(location).body(created);
     }
 

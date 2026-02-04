@@ -1,10 +1,7 @@
 package com.cryptocraft.inventoryservice.controllers.dto.response;
 
-import lombok.Data;
+public record BrandResponseDto(
+        Long brandId,
+        String name
+) {}
 
-@Data
-public class BrandResponseDto {
-
-    private Long brandId;
-    private String name;
-}
