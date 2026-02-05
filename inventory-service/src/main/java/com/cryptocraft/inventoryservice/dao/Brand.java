@@ -1,35 +1,59 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
+import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 @Getter
 @Setter
-@ToString
-@RequiredArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Builder
 @Entity
-@Table(name = "brands")
+@Table(
+        name = "brands",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_brands_name", columnNames = "name")
+        }
+)
+@ToString(onlyExplicitlyIncluded = true)
 public class Brand extends AuditingEntity implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "brand_id")
+    @ToString.Include
     private Long brandId;
 
     @Column(nullable = false)
+    @ToString.Include
     private String name;
 
-    @OneToMany(mappedBy = "brandId", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-    @Fetch(value = FetchMode.JOIN)
-    private List<Product> products;
+    @OneToMany(
+            mappedBy = "brand",
+            fetch = FetchType.LAZY,
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE},
+            orphanRemoval = true
+
+    )
+    @Builder.Default
+    private List<Product> products = new ArrayList<>();
+
+
+    public void addProduct(Product p) {
+        products.add(p);
+        p.setBrand(this);
+    }
+
+    public void removeProduct(Product p) {
+        products.remove(p);
+        p.setBrand(null);
+    }
 
     @Override
     public final boolean equals(Object o) {
@@ -42,8 +66,8 @@ public class Brand extends AuditingEntity implements Serializable {
                 ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
                 : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        Brand brand = (Brand) o;
-        return getBrandId() != null && Objects.equals(getBrandId(), brand.getBrandId());
+        Brand that = (Brand) o;
+        return brandId != null && Objects.equals(brandId, that.brandId);
     }
 
     @Override

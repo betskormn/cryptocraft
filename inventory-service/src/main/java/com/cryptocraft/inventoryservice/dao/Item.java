@@ -1,6 +1,7 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import com.cryptocraft.inventoryservice.config.converters.TypeConverter;
+import com.cryptocraft.inventoryservice.dao.embedded.ItemProductId;
 import com.cryptocraft.inventoryservice.dao.enums.Type;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,37 +14,55 @@ import java.util.Objects;
 
 @Getter
 @Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-@ToString(exclude = {"products"})
-@RequiredArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "items")
+@ToString(onlyExplicitlyIncluded = true)
 public class Item extends AuditingEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "item_id")
+    @ToString.Include
     private Long itemId;
 
     @Column(nullable = false)
+    @ToString.Include
     private String name;
+
     private String recipe;
     private String image;
+
     @Convert(converter = TypeConverter.class)
     private Type type;
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "item_products",
-            joinColumns = @JoinColumn(name = "item_id"),
-            inverseJoinColumns = @JoinColumn(name = "product_id")
-    )
-    private List<Product> products = new ArrayList<>();
+
+    @OneToMany(mappedBy = "item", fetch = FetchType.LAZY, orphanRemoval = true,
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @Builder.Default
+    private List<ItemProduct> productLinks = new ArrayList<>();
+
+
+    public void addProduct(Product product) {
+        ItemProduct link = new ItemProduct();
+        link.setItem(this);
+        link.setProduct(product);
+        link.setId(new ItemProductId());
+        this.productLinks.add(link);
+        product.getItemLinks().add(link);
+    }
+
+    public void removeProduct(Product product) {
+        this.productLinks.removeIf(l -> l.getProduct().equals(product));
+        product.getItemLinks().removeIf(l -> l.getItem().equals(this));
+    }
+
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-
         Class<?> oEffectiveClass = o instanceof HibernateProxy
                 ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
                 : o.getClass();
@@ -51,13 +70,14 @@ public class Item extends AuditingEntity implements Serializable {
                 ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
                 : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-
-        Item item = (Item) o;
-        return itemId != null && Objects.equals(itemId, item.itemId);
+        Item that = (Item) o;
+        return itemId != null && Objects.equals(itemId, that.itemId);
     }
 
     @Override
-    public int hashCode() {
-        return getClass().hashCode();
+    public final int hashCode() {
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }
