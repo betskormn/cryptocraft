@@ -1,0 +1,40 @@
+package com.cryptocraft.inventoryservice.mappers;
+
+import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto;
+import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponseDto;
+import com.cryptocraft.inventoryservice.dao.Item;
+import com.cryptocraft.inventoryservice.dao.ItemProduct;
+import com.cryptocraft.inventoryservice.dao.Product;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Mapper(componentModel = "spring", uses = ProductMapper.class)
+public abstract class ItemMapper {
+
+    @Autowired
+    protected ProductMapper productMapper; // НЕ final і без конструктора
+
+    @Mapping(target = "type", expression = "java(item.getType() != null ? item.getType().name() : null)")
+    @Mapping(target = "products", expression = "java(mapProducts(item))")
+    public abstract ItemResponseDto toDto(Item item);
+
+    protected List<ProductResponseDto> mapProducts(Item item) {
+        List<ItemProduct> links = item.getProductLinks();
+        if (links == null || links.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProductResponseDto> result = new ArrayList<>(links.size());
+        for (ItemProduct link : links) {
+            Product product = link.getProduct();
+            if (product != null) {
+                result.add(productMapper.toDto(product));
+            }
+        }
+        return result;
+    }
+}

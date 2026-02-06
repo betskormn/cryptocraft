@@ -12,7 +12,6 @@ import java.util.Objects;
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Builder
 @Entity
 @Table(
         name = "item_products",
@@ -26,6 +25,9 @@ public class ItemProduct implements Serializable {
     @EmbeddedId
     private ItemProductId id;
 
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity = 1;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("itemId")
     @JoinColumn(name = "item_id", nullable = false,
@@ -38,17 +40,14 @@ public class ItemProduct implements Serializable {
             foreignKey = @ForeignKey(name = "fk_item_products_product"))
     private Product product;
 
-    // Сюди можна додати поля майбутнього: quantity, unitOverride, note, orderIndex тощо
-    // private Integer amount;
-
-    public static ItemProduct of(Item item, Product product) {
+    public static ItemProduct of(Item item, Product product, int quantity) {
         ItemProduct link = new ItemProduct();
         link.setItem(item);
         link.setProduct(product);
         link.setId(new ItemProductId());
+        link.setQuantity(quantity);
         return link;
     }
-
 
     @Override
     public final boolean equals(Object o) {

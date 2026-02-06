@@ -8,12 +8,12 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
 
 liquibase:
-  activities:
-    main:
-      changeLogFile: src/main/resources/db/changelog/db.changelog-master.yaml
-      driver: org.postgresql.Driver
+  change-log: classpath:db/changelog/db.changelog-master.yaml
 
 eureka:
   instance:

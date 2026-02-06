@@ -45,19 +45,35 @@ public class Item extends AuditingEntity implements Serializable {
 
 
     public void addProduct(Product product) {
-        ItemProduct link = new ItemProduct();
-        link.setItem(this);
-        link.setProduct(product);
-        link.setId(new ItemProductId());
-        this.productLinks.add(link);
-        product.getItemLinks().add(link);
+        addProduct(product, 1);
+    }
+
+    public void addProduct(Product product, int quantity) {
+        if (product == null) throw new IllegalArgumentException("product is null");
+        if (quantity <= 0) throw new IllegalArgumentException("quantity must be > 0");
+
+        productLinks.stream()
+                .filter(l -> product.equals(l.getProduct()))
+                .findFirst()
+                .ifPresentOrElse(
+                        link -> link.setQuantity(link.getQuantity() + quantity),
+                        () -> {
+                            ItemProduct link = new ItemProduct();
+                            link.setItem(this);
+                            link.setProduct(product);
+                            link.setId(new ItemProductId()); // для @EmbeddedId + @MapsId
+                            link.setQuantity(quantity);
+                            productLinks.add(link);
+                            product.getItemLinks().add(link);
+                        }
+                );
     }
 
     public void removeProduct(Product product) {
-        this.productLinks.removeIf(l -> l.getProduct().equals(product));
-        product.getItemLinks().removeIf(l -> l.getItem().equals(this));
+        if (product == null) return;
+        productLinks.removeIf(link -> product.equals(link.getProduct()));
+        product.getItemLinks().removeIf(link -> this.equals(link.getItem()));
     }
-
 
     @Override
     public final boolean equals(Object o) {

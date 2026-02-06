@@ -59,6 +59,7 @@ CREATE TABLE item_products
 (
     item_id    BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
+    quantity   INT NOT NULL DEFAULT 1,
 
     -- Composite key – matches @EmbeddedId
     CONSTRAINT pk_item_products PRIMARY KEY (item_id, product_id),

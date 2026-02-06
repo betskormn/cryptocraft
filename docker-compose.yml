@@ -36,7 +36,8 @@ services:
       - postgres
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-    command: ["java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar"]
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar" ]
     networks:
       - cryptocraft-network
 
