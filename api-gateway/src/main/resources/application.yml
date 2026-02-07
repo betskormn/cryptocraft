@@ -3,15 +3,35 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      routes:
-        - id: inventory-service
-          uri: lb://INVENTORY-SERVICE
-          predicates:
-            - Path=/inventory/**
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+
+          routes:
+            - id: inventory-brands
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/v1/brands/**
+            - id: inventory-products
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/v1/products/**
+            - id: inventory-items
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/v1/items/**
 
 server:
   port: 8765
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,env,configprops
+  endpoint:
+    gateway:
+      access: read-only

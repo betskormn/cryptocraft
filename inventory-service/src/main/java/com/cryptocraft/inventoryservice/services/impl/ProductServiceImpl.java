@@ -79,4 +79,12 @@ public class ProductServiceImpl implements ProductService {
         productRepository.deleteById(id);
         log.info("Product with id:{} successfully deleted", id);
     }
+
+    public ProductResponseDto adjustStock(Long productId, Integer delta) {
+        int updated = productRepository.incrementStock(productId, delta);
+        if (updated == 0) {
+            throw new EntityNotFoundException("Product not found: " + productId);
+        }
+        return getProductById(productId);
+    }
 }

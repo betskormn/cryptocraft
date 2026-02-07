@@ -1,5 +1,6 @@
 package com.cryptocraft.inventoryservice.controllers;
 
+import com.cryptocraft.inventoryservice.controllers.dto.request.AdjustStockRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.request.ProductRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponseDto;
 import com.cryptocraft.inventoryservice.services.ProductService;
@@ -100,4 +101,24 @@ public class ProductController {
         productService.deleteProductById(id);
         return ResponseEntity.noContent().build();
     }
+
+
+    @Operation(summary = "Adjust product stock", description = "Atomically adds delta to product stock")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Stock updated"),
+            @ApiResponse(responseCode = "400", description = "Validation error",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Product not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @PatchMapping(value = "/{id}/stock", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProductResponseDto> adjustStock(
+            @Parameter(description = "Product id", example = "1")
+            @PathVariable @Positive Long id,
+            @RequestBody @Valid AdjustStockRequestDto request
+    ) {
+        ProductResponseDto updated = productService.adjustStock(id, request.delta());
+        return ResponseEntity.ok(updated);
+    }
+
 }
