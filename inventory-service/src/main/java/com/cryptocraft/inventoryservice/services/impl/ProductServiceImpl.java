@@ -68,7 +68,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponseDto updateProductById(Long id, ProductRequestDto requestDto) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(format("Product with id:%s, not founded", id)));
-        productMapper.toEntity(requestDto);
+        productMapper.updateEntity(requestDto, product);
         return productMapper.toDto(productRepository.save(product));
     }
 

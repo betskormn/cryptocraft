@@ -5,15 +5,22 @@ import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponse
 import com.cryptocraft.inventoryservice.dao.Product;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
 
     @Mapping(target = "productId", ignore = true)
-    @Mapping(target = "brand", ignore = true) // brand ставимо в сервісі (managed entity з БД)
+    @Mapping(target = "brand", ignore = true)
     @Mapping(target = "itemLinks", ignore = true)
     @Mapping(source = "quantity", target = "quantityInStock")
     Product toEntity(ProductRequestDto dto);
+
+    @Mapping(target = "productId", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(source = "quantity", target = "quantityInStock")
+    void updateEntity(ProductRequestDto dto, @MappingTarget Product entity);
 
     @Mapping(source = "brand.brandId", target = "brandId")
     ProductResponseDto toDto(Product product);

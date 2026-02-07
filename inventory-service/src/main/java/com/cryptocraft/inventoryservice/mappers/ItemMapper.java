@@ -4,19 +4,20 @@ import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto
 import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponseDto;
 import com.cryptocraft.inventoryservice.dao.Item;
 import com.cryptocraft.inventoryservice.dao.ItemProduct;
-import com.cryptocraft.inventoryservice.dao.Product;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring", uses = ProductMapper.class)
 public abstract class ItemMapper {
 
     @Autowired
-    protected ProductMapper productMapper; // НЕ final і без конструктора
+    protected ProductMapper productMapper;
 
     @Mapping(target = "type", expression = "java(item.getType() != null ? item.getType().name() : null)")
     @Mapping(target = "products", expression = "java(mapProducts(item))")
@@ -24,17 +25,10 @@ public abstract class ItemMapper {
 
     protected List<ProductResponseDto> mapProducts(Item item) {
         List<ItemProduct> links = item.getProductLinks();
-        if (links == null || links.isEmpty()) {
-            return List.of();
-        }
-
-        List<ProductResponseDto> result = new ArrayList<>(links.size());
-        for (ItemProduct link : links) {
-            Product product = link.getProduct();
-            if (product != null) {
-                result.add(productMapper.toDto(product));
-            }
-        }
-        return result;
+        return links == null || links.isEmpty() ? List.of() : links.stream()
+                .map(ItemProduct::getProduct)
+                .filter(Objects::nonNull)
+                .map(product -> productMapper.toDto(product))
+                .collect(Collectors.toCollection(() -> new ArrayList<>(links.size())));
     }
 }
