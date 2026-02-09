@@ -57,19 +57,19 @@ services:
     networks:
       - cryptocraft-network
 
-  admin-ui:
-    image: cryptocraft-admin-ui:dev
-    build:
-      context: ./admin-ui
-    container_name: admin-ui
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_BASE_URL=http://api-gateway:8765
-    depends_on:
-      - api-gateway
-    networks:
-      - cryptocraft-network
+#  admin-ui:
+#    image: cryptocraft-admin-ui:dev
+#    build:
+#      context: ./admin-ui
+#    container_name: admin-ui
+#    ports:
+#      - "5173:5173"
+#    environment:
+#      - VITE_API_BASE_URL=http://api-gateway:8765
+#    depends_on:
+#      - api-gateway
+#    networks:
+#      - cryptocraft-network
 
 networks:
   cryptocraft-network:
