@@ -11,11 +11,13 @@ public interface ItemRequestMapper {
 
     @Mapping(target = "itemId", ignore = true)
     @Mapping(target = "productLinks", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
     Item toEntity(ItemRequestDto dto);
 
     @Mapping(target = "productLinks", ignore = true)
     @Mapping(target = "itemId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
     void updateEntity(ItemRequestDto dto, @MappingTarget Item entity);
 }

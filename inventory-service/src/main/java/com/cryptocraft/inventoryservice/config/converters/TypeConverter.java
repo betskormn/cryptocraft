@@ -6,15 +6,15 @@ import jakarta.persistence.Converter;
 
 
 @Converter(autoApply = true)
-public class TypeConverter implements AttributeConverter<Type, Integer> {
+public class TypeConverter implements AttributeConverter<Type, Short> {
 
     @Override
-    public Integer convertToDatabaseColumn(Type attribute) {
-        return attribute.id();
+    public Short convertToDatabaseColumn(Type attribute) {
+        return attribute == null ? null : attribute.id().shortValue();
     }
 
     @Override
-    public Type convertToEntityAttribute(Integer dbData) {
-        return Type.byId(dbData);
+    public Type convertToEntityAttribute(Short dbData) {
+        return dbData == null ? null : Type.byId(dbData.intValue());
     }
 }

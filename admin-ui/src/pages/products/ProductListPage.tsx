@@ -242,8 +242,18 @@ export default function ProductListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
-                            <TableCell sortDirection={tq.sort.key === "name" ? tq.sort.dir : false}>
-                                <TableSortLabel
+
+                            <TableCell
+                                sx={{
+                                    width: 400,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                }}
+                                sortDirection={tq.sort.key === "name" ? tq.sort.dir : false}
+                            >
+
+                            <TableSortLabel
                                     active={tq.sort.key === "name"}
                                     direction={tq.sort.key === "name" ? tq.sort.dir : "asc"}
                                     onClick={() => tq.toggleSort("name")}

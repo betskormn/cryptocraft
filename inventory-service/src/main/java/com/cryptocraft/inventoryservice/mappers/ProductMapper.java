@@ -14,12 +14,16 @@ public interface ProductMapper {
     @Mapping(target = "brand", ignore = true)
     @Mapping(target = "itemLinks", ignore = true)
     @Mapping(source = "quantity", target = "quantityInStock")
+    @Mapping(target = "tenantId", ignore = true)
     Product toEntity(ProductRequestDto dto);
 
     @Mapping(target = "productId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(source = "quantity", target = "quantityInStock")
+    @Mapping(target = "tenantId", ignore = true)
+    @Mapping(target = "brand", ignore = true)
+    @Mapping(target = "itemLinks", ignore = true)
     void updateEntity(ProductRequestDto dto, @MappingTarget Product entity);
 
     @Mapping(source = "brand.brandId", target = "brandId")

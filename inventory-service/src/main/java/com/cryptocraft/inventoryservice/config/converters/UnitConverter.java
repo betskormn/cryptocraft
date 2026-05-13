@@ -5,15 +5,15 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
 @Converter(autoApply = true)
-public class UnitConverter implements AttributeConverter<Unit, Integer> {
+public class UnitConverter implements AttributeConverter<Unit, Short> {
 
     @Override
-    public Integer convertToDatabaseColumn(Unit attribute) {
-        return attribute.id();
+    public Short convertToDatabaseColumn(Unit attribute) {
+        return attribute == null ? null : attribute.id().shortValue();
     }
 
     @Override
-    public Unit convertToEntityAttribute(Integer dbData) {
-        return Unit.byId(dbData);
+    public Unit convertToEntityAttribute(Short dbData) {
+        return dbData == null ? null : Unit.byId(dbData.intValue());
     }
 }

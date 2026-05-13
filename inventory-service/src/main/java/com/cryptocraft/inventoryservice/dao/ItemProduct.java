@@ -1,6 +1,8 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import com.cryptocraft.inventoryservice.dao.embedded.ItemProductId;
+import com.cryptocraft.inventoryservice.tenant.HasTenant;
+import com.cryptocraft.inventoryservice.tenant.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -13,14 +15,16 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Entity
+@EntityListeners(TenantEntityListener.class)
 @Table(
         name = "item_products",
         indexes = {
                 @Index(name = "ix_item_products_item_id", columnList = "item_id"),
-                @Index(name = "ix_item_products_product_id", columnList = "product_id")
+                @Index(name = "ix_item_products_product_id", columnList = "product_id"),
+                @Index(name = "ix_item_products_tenant_id", columnList = "tenant_id")
         }
 )
-public class ItemProduct implements Serializable {
+public class ItemProduct implements HasTenant, Serializable {
 
     @EmbeddedId
     private ItemProductId id;
@@ -40,13 +44,34 @@ public class ItemProduct implements Serializable {
             foreignKey = @ForeignKey(name = "fk_item_products_product"))
     private Product product;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     public static ItemProduct of(Item item, Product product, int quantity) {
         ItemProduct link = new ItemProduct();
         link.setItem(item);
         link.setProduct(product);
         link.setId(new ItemProductId());
         link.setQuantity(quantity);
+        link.setTenantId(item.getTenantId()); // щоб пройти RLS/trigger
         return link;
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void alignTenantWithItemAndProduct() {
+        Long itemTid = item != null ? item.getTenantId() : null;
+        Long prodTid = product != null ? product.getTenantId() : null;
+
+        if (tenantId == null && itemTid != null){
+            tenantId = itemTid;
+        }
+        if (itemTid != null && !itemTid.equals(tenantId)) {
+            throw new IllegalStateException("Tenant mismatch: item_products.tenantId != item.tenantId");
+        }
+        if (prodTid != null && !prodTid.equals(tenantId)) {
+            throw new IllegalStateException("Tenant mismatch: item_products.tenantId != product.tenantId");
+        }
     }
 
     @Override

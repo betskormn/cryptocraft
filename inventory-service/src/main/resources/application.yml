@@ -3,17 +3,19 @@ spring:
     name: inventory-service
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     show-sql: true
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
-
-liquibase:
-  change-log: classpath:db/changelog/db.changelog-master.yaml
 
 eureka:
   instance:
@@ -21,3 +23,8 @@ eureka:
 
 server:
   port: 0
+
+logging:
+  level:
+    liquibase: INFO
+    org.springframework.boot.autoconfigure.liquibase: INFO

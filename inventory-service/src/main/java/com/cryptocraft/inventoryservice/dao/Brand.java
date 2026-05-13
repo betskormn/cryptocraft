@@ -1,5 +1,7 @@
 package com.cryptocraft.inventoryservice.dao;
 
+import com.cryptocraft.inventoryservice.tenant.HasTenant;
+import com.cryptocraft.inventoryservice.tenant.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -15,14 +17,15 @@ import java.util.Objects;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 @Entity
+@EntityListeners(TenantEntityListener.class)
 @Table(
         name = "brands",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_brands_name", columnNames = "name")
+        indexes = {
+                @Index(name = "uk_brands_tenant_name", columnList = "tenant_id,name", unique = true)
         }
 )
 @ToString(onlyExplicitlyIncluded = true)
-public class Brand extends AuditingEntity implements Serializable {
+public class Brand extends AuditingEntity implements HasTenant, Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,20 +37,24 @@ public class Brand extends AuditingEntity implements Serializable {
     @ToString.Include
     private String name;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @OneToMany(
             mappedBy = "brand",
             fetch = FetchType.LAZY,
             cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE},
             orphanRemoval = true
-
     )
     @Builder.Default
     private List<Product> products = new ArrayList<>();
 
-
     public void addProduct(Product p) {
         products.add(p);
         p.setBrand(this);
+        if (p.getTenantId() == null) {
+            p.setTenantId(this.tenantId);
+        }
     }
 
     public void removeProduct(Product p) {

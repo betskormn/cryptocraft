@@ -11,6 +11,7 @@ public interface BrandMapper {
 
     @Mapping(target = "brandId", ignore = true)
     @Mapping(target = "products", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
     Brand toEntity(BrandRequestDto dto);
 
     BrandResponseDto toDto(Brand brand);

@@ -3,6 +3,8 @@ package com.cryptocraft.inventoryservice.dao;
 import com.cryptocraft.inventoryservice.config.converters.TypeConverter;
 import com.cryptocraft.inventoryservice.dao.embedded.ItemProductId;
 import com.cryptocraft.inventoryservice.dao.enums.Type;
+import com.cryptocraft.inventoryservice.tenant.HasTenant;
+import com.cryptocraft.inventoryservice.tenant.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -18,9 +20,16 @@ import java.util.Objects;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 @Entity
-@Table(name = "items")
+@EntityListeners(TenantEntityListener.class)
+@Table(
+        name = "items",
+        indexes = {
+                @Index(name = "ix_items_tenant_id", columnList = "tenant_id"),
+                @Index(name = "ix_items_tenant_name", columnList = "tenant_id,name")
+        }
+)
 @ToString(onlyExplicitlyIncluded = true)
-public class Item extends AuditingEntity implements Serializable {
+public class Item extends AuditingEntity implements HasTenant, Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,14 +44,17 @@ public class Item extends AuditingEntity implements Serializable {
     private String recipe;
     private String image;
 
+    @Column(name = "type", nullable = false)
     @Convert(converter = TypeConverter.class)
     private Type type;
+
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
 
     @OneToMany(mappedBy = "item", fetch = FetchType.LAZY, orphanRemoval = true,
             cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @Builder.Default
     private List<ItemProduct> productLinks = new ArrayList<>();
-
 
     public void addProduct(Product product) {
         addProduct(product, 1);
@@ -61,8 +73,9 @@ public class Item extends AuditingEntity implements Serializable {
                             ItemProduct link = new ItemProduct();
                             link.setItem(this);
                             link.setProduct(product);
-                            link.setId(new ItemProductId()); // для @EmbeddedId + @MapsId
+                            link.setId(new ItemProductId()); // @EmbeddedId + @MapsId
                             link.setQuantity(quantity);
+                            link.setTenantId(this.tenantId); // важливо для RLS/trigger
                             productLinks.add(link);
                             product.getItemLinks().add(link);
                         }
