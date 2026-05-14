@@ -25,8 +25,6 @@ services:
 
   inventory-service:
     image: inventory-service:latest
-    build:
-      context: ./inventory-service
     ports:
       - "8081:8081"
       - "5005:5005"
@@ -36,8 +34,69 @@ services:
       - postgres
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar" ]
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
+    build:
+      context: .
+    command: [
+      "./gradlew",
+      ":inventory-service:bootRun",
+      "--continuous",
+      "--no-daemon",
+      "-Dorg.gradle.debug=false",
+      "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    ]
+    volumes:
+      - .:/app
+      - gradle_cache:/home/gradle/.gradle
+    networks:
+      - cryptocraft-network
+
+  pricing-service:
+    image: pricing-service:latest
+    ports:
+      - "8082:8082"
+      - "5006:5005"
+    container_name: pricing-service
+    depends_on:
+      - eureka-server
+      - inventory-service
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - INVENTORY_SERVICE_URL=http://inventory-service:8081
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    build:
+      context: .
+    command: [
+      "./gradlew",
+      ":pricing-service:bootRun",
+      "--no-daemon"
+    ]
+    volumes:
+      - .:/app
+      - gradle_cache:/home/gradle/.gradle
+    networks:
+      - cryptocraft-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - cryptocraft-network
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - cryptocraft-network
 
@@ -57,22 +116,9 @@ services:
     networks:
       - cryptocraft-network
 
-#  admin-ui:
-#    image: cryptocraft-admin-ui:dev
-#    build:
-#      context: ./admin-ui
-#    container_name: admin-ui
-#    ports:
-#      - "5173:5173"
-#    environment:
-#      - VITE_API_BASE_URL=http://api-gateway:8765
-#    depends_on:
-#      - api-gateway
-#    networks:
-#      - cryptocraft-network
-
 networks:
   cryptocraft-network:
 
 volumes:
   postgres_data:
+  gradle_cache:
