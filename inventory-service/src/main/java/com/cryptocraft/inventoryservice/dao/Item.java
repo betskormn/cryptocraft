@@ -10,6 +10,7 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -51,6 +52,15 @@ public class Item extends AuditingEntity implements HasTenant, Serializable {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
+    @Column(name = "base_price", nullable = false)
+    private BigDecimal basePrice;
+
+    @Column(name = "min_price", nullable = false)
+    private BigDecimal minPrice;
+
+    @Column(name = "max_price", nullable = false)
+    private BigDecimal maxPrice;
+
     @OneToMany(mappedBy = "item", fetch = FetchType.LAZY, orphanRemoval = true,
             cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @Builder.Default
@@ -82,10 +92,21 @@ public class Item extends AuditingEntity implements HasTenant, Serializable {
                 );
     }
 
+    public void removeLink(ItemProduct link) {
+        if (link == null) return;
+
+        productLinks.remove(link);
+        link.getProduct().getItemLinks().remove(link);
+
+        link.setItem(null);
+        link.setProduct(null);
+    }
+
     public void removeProduct(Product product) {
-        if (product == null) return;
-        productLinks.removeIf(link -> product.equals(link.getProduct()));
-        product.getItemLinks().removeIf(link -> this.equals(link.getItem()));
+        productLinks.stream()
+                .filter(link -> Objects.equals(product, link.getProduct()))
+                .findFirst()
+                .ifPresent(this::removeLink);
     }
 
     @Override

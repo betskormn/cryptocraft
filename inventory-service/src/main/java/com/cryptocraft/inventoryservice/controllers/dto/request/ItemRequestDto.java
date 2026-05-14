@@ -1,11 +1,14 @@
 package com.cryptocraft.inventoryservice.controllers.dto.request;
 
+import com.cryptocraft.inventoryservice.annotations.ValidPriceRange;
 import com.cryptocraft.inventoryservice.dao.enums.Type;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
+@ValidPriceRange
 public record ItemRequestDto(
         @NotBlank(message = "Item name must not be blank")
         @Size(max = 200, message = "Item name must be at most 200 characters")
@@ -19,6 +22,18 @@ public record ItemRequestDto(
 
         @NotNull(message = "Type must not be null")
         Type type,
+
+        @NotNull(message = "basePrice must not be null")
+        @Positive(message = "basePrice must be > 0")
+        BigDecimal basePrice,
+
+        @NotNull(message = "minPrice must not be null")
+        @Positive(message = "minPrice must be > 0")
+        BigDecimal minPrice,
+
+        @NotNull(message = "maxPrice must not be null")
+        @Positive(message = "maxPrice must be > 0")
+        BigDecimal maxPrice,
 
         @NotEmpty(message = "Products must not be empty")
         List<@Valid ItemProductDto> products

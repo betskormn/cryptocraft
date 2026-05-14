@@ -39,7 +39,7 @@ import ItemDialog from "../../components/ItemDialog";
 import { includes } from "../../utils/text";
 import { useTableQuery } from "../../hooks/useTableQuery";
 
-type SortKey = "id" | "name" | "type" | "products";
+type SortKey = "id" | "name" | "type" | "products" | "price";
 
 export default function ItemListPage() {
     const qc = useQueryClient();
@@ -103,6 +103,7 @@ export default function ItemListPage() {
             name: (it) => it.name,
             type: (it) => it.type,
             products: (it) => it.products?.length ?? 0,
+            price: (it) => it.basePrice,
         },
     });
 
@@ -195,6 +196,19 @@ export default function ItemListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
+                            <TableCell
+                                width={140}
+                                sortDirection={tq.sort.key === "price" ? tq.sort.dir : false}
+                            >
+                                <TableSortLabel
+                                    active={tq.sort.key === "price"}
+                                    direction={tq.sort.key === "price" ? tq.sort.dir : "asc"}
+                                    onClick={() => tq.toggleSort("price")}
+                                >
+                                    Price
+                                </TableSortLabel>
+                            </TableCell>
+
                             <TableCell width={160} align="right">
                                 Actions
                             </TableCell>
@@ -208,6 +222,9 @@ export default function ItemListPage() {
                                 <TableCell>{it.name}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>{it.type}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>{it.products?.length ?? 0}</TableCell>
+                                <TableCell sx={{ color: "text.secondary" }}>
+                                    {it.basePrice}
+                                </TableCell>
 
                                 <TableCell align="right">
                                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
@@ -254,7 +271,7 @@ export default function ItemListPage() {
 
                         {tq.totalFiltered === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5}>
+                                <TableCell colSpan={6}>
                                     {tq.search.trim() ? "No matches found" : "No items yet"}
                                 </TableCell>
                             </TableRow>

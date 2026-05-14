@@ -25,6 +25,8 @@ services:
 
   inventory-service:
     image: inventory-service:latest
+    build:
+      context: ./inventory-service
     ports:
       - "8081:8081"
       - "5005:5005"
@@ -34,28 +36,18 @@ services:
       - postgres
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DOCKER_COMPOSE_ENABLED=false
-    build:
-      context: .
-    command: [
-      "./gradlew",
-      ":inventory-service:bootRun",
-      "--continuous",
-      "--no-daemon",
-      "-Dorg.gradle.debug=false",
-      "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
-    ]
-    volumes:
-      - .:/app
-      - gradle_cache:/home/gradle/.gradle
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar" ]
     networks:
       - cryptocraft-network
 
   pricing-service:
     image: pricing-service:latest
+    build:
+      context: ./pricing-service
     ports:
       - "8082:8082"
-      - "5006:5005"
+      - "5006:5006"
     container_name: pricing-service
     depends_on:
       - eureka-server
@@ -66,27 +58,22 @@ services:
       - SPRING_DOCKER_COMPOSE_ENABLED=false
       - INVENTORY_SERVICE_URL=http://inventory-service:8081
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-    build:
-      context: .
-    command: [
-      "./gradlew",
-      ":pricing-service:bootRun",
-      "--no-daemon"
-    ]
-    volumes:
-      - .:/app
-      - gradle_cache:/home/gradle/.gradle
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "pricing-service.jar" ]
     networks:
       - cryptocraft-network
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
     networks:
       - cryptocraft-network
+
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
     depends_on:
       - zookeeper
     ports:
@@ -97,6 +84,19 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - cryptocraft-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
     networks:
       - cryptocraft-network
 
@@ -121,4 +121,3 @@ networks:
 
 volumes:
   postgres_data:
-  gradle_cache:

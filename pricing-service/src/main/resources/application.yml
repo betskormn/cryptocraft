@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: pricing-service
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      acks: all
+      enable-idempotence: true
+      retries: 3
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+
+logging:
+  level:
+    org.apache.kafka: INFO
+server:
+  port: 8082

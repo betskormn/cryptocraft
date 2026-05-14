@@ -48,6 +48,9 @@ export default function ItemDialog({
     const [recipe, setRecipe] = useState("");
     const [image, setImage] = useState("");
     const [type, setType] = useState<Type>("");
+    const [basePrice, setBasePrice] = useState<number>(0);
+    const [minPrice, setMinPrice] = useState<number>(0);
+    const [maxPrice, setMaxPrice] = useState<number>(0);
     const [rows, setRows] = useState<ItemProductRow[]>([{ productId: "", quantity: 1 }]);
 
     useEffect(() => {
@@ -58,22 +61,26 @@ export default function ItemDialog({
             setRecipe(initial.recipe ?? "");
             setImage(initial.image ?? "");
             setType((initial.type ?? "") as Type);
-
-            // response products: ProductResponseDto[] (без quantity рецепту)
-            // Тому для редагування нам потрібна кількість з бекенду.
-            // Якщо бекенд не повертає quantity для item-products, то редагувати точні кількості неможливо.
-            // В такому разі ставимо quantity=1 за замовчуванням.
+            setBasePrice(initial.basePrice ?? 0);
+            setMinPrice(initial.minPrice ?? 0);
+            setMaxPrice(initial.maxPrice ?? 0);
             setRows(
-                (initial.products?.length ? initial.products : []).map((p) => ({
-                    productId: p.productId,
-                    quantity: 1,
-                })) || [{ productId: "", quantity: 1 }]
+                (initial.products ?? [])
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((p) => ({
+                        productId: p.productId,
+                        quantity: p.quantity ?? 1,
+                    }))
             );
         } else {
             setName("");
             setRecipe("");
             setImage("");
             setType("");
+            setBasePrice(0);
+            setMinPrice(0);
+            setMaxPrice(0);
             setRows([{ productId: "", quantity: 1 }]);
         }
     }, [open, mode, initial]);
@@ -83,7 +90,11 @@ export default function ItemDialog({
         const validRows =
             rows.length > 0 &&
             rows.every((r) => r.productId !== "" && Number(r.quantity) > 0);
-        return validBase && validRows;
+        const validPrices =
+            basePrice > 0 &&
+            minPrice > 0 &&
+            maxPrice > 0;
+        return validBase && validRows && validPrices;
     }, [loading, name, type, rows]);
 
     function addRow() {
@@ -106,6 +117,9 @@ export default function ItemDialog({
             recipe: recipe.trim() ? recipe.trim() : null,
             image: image.trim() ? image.trim() : null,
             type: String(type).trim(),
+            basePrice,
+            minPrice,
+            maxPrice,
             products: rows.map((r) => ({
                 productId: Number(r.productId),
                 quantity: Number(r.quantity),
@@ -120,27 +134,28 @@ export default function ItemDialog({
             <DialogContent>
                 {errorText ? <Alert severity="error" sx={{ mb: 2 }}>{errorText}</Alert> : null}
 
-                <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            label="Name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            fullWidth
-                            required
-                            autoFocus
-                        />
-                    </Grid>
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField
+                        label="Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        fullWidth
+                        required
+                    />
 
-
-                    <Grid item xs={12} md={6}>
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                         <TextField
                             label="Type"
                             select
                             value={type}
                             onChange={(e) => setType(e.target.value as Type)}
-                            fullWidth
                             required
+                            sx={{
+                                minWidth: 80,
+                                maxWidth: 120,
+                                width: { xs: "100%", md: 200 },
+                                flexShrink: 0
+                            }}
                         >
                             {TYPE_OPTIONS.map((t) => (
                                 <MenuItem key={t} value={t}>
@@ -148,29 +163,59 @@ export default function ItemDialog({
                                 </MenuItem>
                             ))}
                         </TextField>
-                    </Grid>
-
-
-                    <Grid item xs={12} md={6}>
                         <TextField
                             label="Image URL"
                             value={image}
                             onChange={(e) => setImage(e.target.value)}
                             fullWidth
                         />
-                    </Grid>
 
-                    <Grid item xs={12} md={6}>
-                        <TextField
-                            label="Recipe"
-                            value={recipe}
-                            onChange={(e) => setRecipe(e.target.value)}
-                            fullWidth
-                            multiline
-                            minRows={2}
-                        />
-                    </Grid>
-                </Grid>
+                    </Stack>
+                    <TextField
+                        label="Recipe"
+                        value={recipe}
+                        onChange={(e) => setRecipe(e.target.value)}
+                        fullWidth
+                        multiline
+                        minRows={4}
+                    />
+                    <Stack spacing={1}>
+                        <Typography fontWeight={700}>
+                            Pricing
+                        </Typography>
+
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                            <TextField
+                                label="Base price"
+                                type="number"
+                                value={basePrice}
+                                onChange={(e) => setBasePrice(Number(e.target.value))}
+                                fullWidth
+                                required
+                                helperText="min ≤ base ≤ max"
+                            />
+
+                            <TextField
+                                label="Min price"
+                                type="number"
+                                value={minPrice}
+                                onChange={(e) => setMinPrice(Number(e.target.value))}
+                                fullWidth
+                                required
+                            />
+
+                            <TextField
+                                label="Max price"
+                                type="number"
+                                value={maxPrice}
+                                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                                fullWidth
+                                required
+                            />
+                        </Stack>
+                    </Stack>
+                </Stack>
+
 
                 <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
@@ -197,14 +242,41 @@ export default function ItemDialog({
                                     ))}
                                 </TextField>
 
-                                <TextField
-                                    label="Quantity"
-                                    type="number"
-                                    value={r.quantity}
-                                    onChange={(e) => updateRow(idx, { quantity: Number(e.target.value) })}
-                                    inputProps={{ min: 1 }}
-                                    sx={{ width: { md: 180 } }}
-                                />
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                            updateRow(idx, { quantity: Math.max(1, r.quantity - 1) })
+                                        }
+                                    >
+                                        −
+                                    </IconButton>
+
+                                    <TextField
+                                        value={r.quantity}
+                                        label="Quantity"
+                                        onChange={(e) =>
+                                            updateRow(idx, { quantity: Number(e.target.value) })
+                                        }
+                                        size="small"
+                                        sx={{
+                                            width: 70,
+                                            "& input": {
+                                                textAlign: "center",
+                                            },
+                                        }}
+                                    />
+
+                                    <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                            updateRow(idx, { quantity: r.quantity + 1 })
+                                        }
+                                    >
+                                        +
+                                    </IconButton>
+                                </Stack>
+
 
                                 <IconButton
                                     onClick={() => removeRow(idx)}

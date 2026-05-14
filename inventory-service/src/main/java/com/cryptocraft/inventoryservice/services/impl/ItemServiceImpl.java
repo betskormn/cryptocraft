@@ -1,8 +1,10 @@
 package com.cryptocraft.inventoryservice.services.impl;
 
 import com.cryptocraft.inventoryservice.controllers.dto.request.ItemRequestDto;
+import com.cryptocraft.inventoryservice.controllers.dto.response.ItemPriceResponceDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto;
 import com.cryptocraft.inventoryservice.dao.Item;
+import com.cryptocraft.inventoryservice.dao.ItemProduct;
 import com.cryptocraft.inventoryservice.dao.Product;
 import com.cryptocraft.inventoryservice.exceptions.ProductNotFoundException;
 import com.cryptocraft.inventoryservice.mappers.ItemMapper;
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -89,12 +92,43 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepository.findByIdWithProducts(id)
                 .orElseThrow(() -> new EntityNotFoundException(format("Item with id:%s, not founded", id)));
         itemRequestMapper.updateEntity(dto, item);
-        item.getProductLinks().clear();
-        attachProducts(item, dto);
+        syncProducts(item, dto);
         Item saved = itemRepository.save(item);
         Item savedWithProducts = itemRepository.findByIdWithProducts(saved.getItemId())
                 .orElseThrow(() -> new EntityNotFoundException("Item not found after save: " + saved.getItemId()));
         return itemMapper.toDto(savedWithProducts);
+    }
+
+    private void syncProducts(Item item, ItemRequestDto dto) {
+        Map<Long, ItemProduct> existing = item.getProductLinks().stream()
+                .collect(Collectors.toMap(
+                        link -> link.getProduct().getProductId(),
+                        Function.identity()
+                ));
+        List<ItemRequestDto.ItemProductDto> incoming = dto.products();
+        Map<Long, Product> products = productRepository.findAllById(
+                        incoming.stream()
+                                .map(ItemRequestDto.ItemProductDto::productId)
+                                .toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        Product::getProductId,
+                        Function.identity()
+                ));
+        incoming.forEach(p -> {
+            ItemProduct existingLink = existing.remove(p.productId());
+            if (existingLink != null) {
+                existingLink.setQuantity(p.quantity());
+                return;
+            }
+            Product product = products.get(p.productId());
+            if (product == null) {
+                throw new EntityNotFoundException("Product not found: " + p.productId());
+            }
+            ItemProduct newLink = ItemProduct.of(item, product, p.quantity());
+            item.getProductLinks().add(newLink);
+        });
+        existing.values().forEach(item::removeLink);
     }
 
     @Override
@@ -104,5 +138,11 @@ public class ItemServiceImpl implements ItemService {
                 .orElseThrow(() -> new EntityNotFoundException(format("Item with id:%s not founded", id)));
         itemRepository.delete(item);
         log.info("Item with id:{} successfully deleted", id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemPriceResponceDto> getAllPrices() {
+        return itemRepository.findAllPrices();
     }
 }

@@ -14,6 +14,7 @@ rootProject.name = 'cryptocraft'
 
 include 'eureka-server'
 include 'inventory-service'
+include 'pricing-service'
 include 'api-gateway'
 include 'authentication-service'
 include 'platform'

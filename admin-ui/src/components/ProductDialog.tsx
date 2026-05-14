@@ -7,6 +7,8 @@ import {
     DialogContent,
     DialogTitle,
     Grid,
+    IconButton,
+    Stack,
     MenuItem,
     TextField,
 } from "@mui/material";
@@ -110,14 +112,33 @@ export default function ProductDialog({
                     </Grid>
 
                     <Grid item xs={12} md={3}>
-                        <TextField
-                            label="Quantity"
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(Number(e.target.value))}
-                            fullWidth
-                            inputProps={{ min: 0 }}
-                        />
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <IconButton
+                                size="small"
+                                onClick={() => setQuantity((q) => Math.max(0, q - 1))}
+                            >
+                                −
+                            </IconButton>
+
+                            <TextField
+                                value={quantity}
+                                label="Quantity"
+                                onChange={(e) => setQuantity(Number(e.target.value))}
+                                size="small"
+                                sx={{
+                                    width: 80,
+                                    "& input": {
+                                        textAlign: "center",
+                                    },
+                                }}
+                            />
+                            <IconButton
+                                size="small"
+                                onClick={() => setQuantity((q) => q + 1)}
+                            >
+                                +
+                            </IconButton>
+                        </Stack>
                     </Grid>
 
                     <Grid item xs={12} md={3}>

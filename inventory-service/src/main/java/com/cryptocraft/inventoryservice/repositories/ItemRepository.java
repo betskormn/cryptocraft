@@ -1,5 +1,6 @@
 package com.cryptocraft.inventoryservice.repositories;
 
+import com.cryptocraft.inventoryservice.controllers.dto.response.ItemPriceResponceDto;
 import com.cryptocraft.inventoryservice.dao.Item;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -29,4 +30,14 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
            """)
     List<Item> findAllWithProducts();
 
+    @Query("""
+    SELECT new com.cryptocraft.inventoryservice.controllers.dto.response.ItemPriceResponceDto(
+        i.itemId,
+        i.basePrice,
+        i.minPrice,
+        i.maxPrice
+    )
+    FROM Item i
+""")
+    List<ItemPriceResponceDto> findAllPrices();
 }

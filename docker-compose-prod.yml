@@ -1,0 +1,78 @@
+services:
+  eureka-server:
+    image: docker.io/library/eureka-server:0.0.1-SNAPSHOT
+    build:
+      context: ./eureka-server
+    ports:
+      - "8761:8761"
+    container_name: eureka-server
+    networks:
+      - cryptocraft-network
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - cryptocraft-network
+
+  inventory-service:
+    image: inventory-service:latest
+    build:
+      context: ./inventory-service
+    ports:
+      - "8081:8081"
+      - "5005:5005"
+    container_name: inventory-service
+    depends_on:
+      - eureka-server
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar" ]
+    networks:
+      - cryptocraft-network
+
+  api-gateway:
+    image: api-gateway:latest
+    build:
+      context: ./api-gateway
+    ports:
+      - "8765:8765"
+    container_name: api-gateway
+    depends_on:
+      - eureka-server
+      - inventory-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - INVENTORY_SERVICE_URL=http://inventory-service:8081
+    networks:
+      - cryptocraft-network
+
+  admin-ui:
+    image: cryptocraft-admin-ui:dev
+    build:
+      context: ./admin-ui
+    container_name: admin-ui
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://api-gateway:8765
+    depends_on:
+      - api-gateway
+    networks:
+      - cryptocraft-network
+
+networks:
+  cryptocraft-network:
+
+volumes:
+  postgres_data:

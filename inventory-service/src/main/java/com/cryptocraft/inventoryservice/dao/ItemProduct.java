@@ -51,9 +51,8 @@ public class ItemProduct implements HasTenant, Serializable {
         ItemProduct link = new ItemProduct();
         link.setItem(item);
         link.setProduct(product);
-        link.setId(new ItemProductId());
         link.setQuantity(quantity);
-        link.setTenantId(item.getTenantId()); // щоб пройти RLS/trigger
+        link.setTenantId(item.getTenantId());
         return link;
     }
 

@@ -27,8 +27,19 @@ export type ItemResponseDto = {
     recipe?: string | null;
     image?: string | null;
     type: string;
-    products: ProductResponseDto[];
+    basePrice: number;
+    minPrice: number;
+    maxPrice: number;
+    products: ItemProductResponseDto[];
 };
+
+
+export type ItemProductResponseDto = {
+    productId: number;
+    name: string;
+    quantity: number;
+};
+
 
 export async function getAllItems(): Promise<ItemResponseDto[]> {
     const res = await http.get<ItemResponseDto[]>("/api/v1/items");
