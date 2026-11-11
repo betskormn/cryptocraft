@@ -47,67 +47,48 @@
 <body class="text-gray-200 p-10">
 
 <h1 class="text-5xl font-bold text-teal-400 mb-8">
-    MENU
+    MENU <span id="venue" class="text-2xl text-gray-500 align-middle"></span>
 </h1>
 
 <div id="content"></div>
 
 <script>
 
-    const ws = new WebSocket("ws://localhost:8083/ws/prices");
+    // venue comes from ?venue=<slug>; rows are built from the price events themselves
+    const venue = new URLSearchParams(location.search).get("venue") || "default";
+    document.getElementById("venue").innerText = venue;
+
+    const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${wsProtocol}://${location.host}/ws/prices/${encodeURIComponent(venue)}`);
 
     const prices = {};
     const history = {};
-    let menuMap = {};
 
-    // ✅ LOAD MENU
-    fetch("/menu/menu.json?ts=" + Date.now())
-        .then(r => r.json())
-        .then(menu => {
-            menu.sort((a, b) => a.order - b.order);
-
-            menu.forEach(item => {
-                menuMap[item.itemId] = item;
-                history[item.itemId] = [];
-            });
-
-            renderLayout(menu);
-        });
+    const groups = {DRINK: "DRINKS", MEAL: "MEAL"};
 
     // ✅ LAYOUT
-    function renderLayout(menu) {
-
-        const container = document.getElementById("content");
-
-        const groups = {
-            DRINK: [],
-            MEAL: []
-        };
-
-        menu.forEach(i => groups[i.type].push(i));
-
-        container.innerHTML = `
-            ${renderGroup("DRINKS", groups.DRINK)}
-            ${renderGroup("MEAL", groups.MEAL)}
-        `;
-    }
-
-    function renderGroup(title, items) {
-        return `
+    document.getElementById("content").innerHTML = Object.entries(groups)
+        .map(([type, title]) => `
             <div class="mb-10">
                 <div class="text-2xl text-teal-400 mb-4">${title}</div>
-                ${items.map(i => row(i)).join("")}
+                <div id="group-${type}"></div>
             </div>
-        `;
+        `)
+        .join("");
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.innerText = text ?? "";
+        return div.innerHTML;
     }
 
     function row(item) {
         return `
-        <div id="row-${item.itemId}"
+        <div id="row-${item.itemId}" data-name="${escapeHtml(item.name)}"
              class="grid grid-cols-[2fr_1fr_1fr_2fr] gap-4 py-3 border-b border-gray-800 items-center text-center">
 
             <div class="text-lg uppercase tracking-wide text-gray-300">
-                ${item.name}
+                ${escapeHtml(item.name)}
             </div>
 
             <div id="price-${item.itemId}"
@@ -127,6 +108,17 @@
     `;
     }
 
+    // adds a row the first time an item appears, keeping each group sorted by name
+    function ensureRow(item) {
+        if (document.getElementById(`row-${item.itemId}`)) return;
+
+        const group = document.getElementById(`group-${item.type}`) || document.getElementById("group-DRINK");
+        group.insertAdjacentHTML("beforeend", row(item));
+        [...group.children]
+            .sort((a, b) => a.dataset.name.localeCompare(b.dataset.name))
+            .forEach(el => group.appendChild(el));
+    }
+
 
     // ✅ WS EVENTS
     ws.onmessage = (event) => {
@@ -134,6 +126,8 @@
 
         const id = data.itemId;
         const price = data.price;
+
+        ensureRow(data);
 
         const old = prices[id];
         prices[id] = price;

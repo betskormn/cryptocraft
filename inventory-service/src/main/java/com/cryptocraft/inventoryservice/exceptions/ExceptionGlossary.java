@@ -21,6 +21,7 @@ public enum ExceptionGlossary {
 //    DUPLICATE_ERROR(DuplicateEntityConstraintException.class, HttpStatus.CONFLICT),
 //    ACCOUNT_STATUS_ERROR(InvalidAccountStatusException.class, CONFLICT),
     NOT_VALID_VARIABLE(MethodArgumentNotValidException.class, HttpStatus.BAD_REQUEST),
+    TENANT_ALREADY_EXISTS(TenantAlreadyExistsException.class, HttpStatus.CONFLICT),
 //    CONSUMER_TOO_FAR_TO_START_REDEMPTION(ConsumerTooFarToRedeemException.class, HttpStatus.FORBIDDEN),
     ENTITY_NOT_FOUND(EntityNotFoundException .class, HttpStatus.NOT_FOUND);
 //    UNSUPPORTED_VERSION(UnsupportedVersionException.class, HttpStatus.NOT_ACCEPTABLE);

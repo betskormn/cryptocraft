@@ -23,6 +23,10 @@ spring:
               uri: lb://INVENTORY-SERVICE
               predicates:
                 - Path=/api/v1/items/**
+            - id: inventory-platform-tenants
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/v1/platform/tenants/**
 
 server:
   port: 8765

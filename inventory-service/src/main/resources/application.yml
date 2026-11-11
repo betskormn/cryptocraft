@@ -16,6 +16,10 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
+    # role the service itself connects as; created by 005-tenant-isolation.sql
+    parameters:
+      app_db_user: ${APP_DB_USER:cryptocraft_app}
+      app_db_password: ${APP_DB_PASSWORD:cryptocraft_app}
 
 eureka:
   instance:

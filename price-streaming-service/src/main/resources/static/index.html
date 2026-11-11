@@ -60,7 +60,9 @@
 
 <script>
 
-    const ws = new WebSocket("ws://localhost:8083/ws/prices");
+    const venue = new URLSearchParams(location.search).get("venue") || "default";
+    const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${wsProtocol}://${location.host}/ws/prices/${encodeURIComponent(venue)}`);
 
     const prices = {}; // cache по itemId
 
@@ -81,11 +83,12 @@
             row.id = "row-" + itemId;
 
             row.innerHTML = `
-                <td>${itemId}</td>
+                <td></td>
                 <td id="price-${itemId}">${newPrice.toFixed(2)}</td>
                 <td id="delta-${itemId}">-</td>
             `;
 
+            row.firstElementChild.innerText = data.name ?? itemId;
             document.getElementById("prices").appendChild(row);
             return;
         }

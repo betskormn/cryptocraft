@@ -2,9 +2,11 @@ package com.cryptocraft.pricingservice.kafka;
 
 import com.cryptocraft.pricingservice.pricing.model.PriceEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PriceProducer {
@@ -17,7 +19,7 @@ public class PriceProducer {
         kafkaTemplate.send(TOPIC, String.valueOf(event.itemId()), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        System.err.println("Kafka send failed: " + ex.getMessage());
+                        log.warn("Kafka send failed: {}", ex.getMessage());
                     }
                 });
     }

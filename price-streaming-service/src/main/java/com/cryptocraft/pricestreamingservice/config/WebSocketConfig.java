@@ -21,7 +21,7 @@ public class WebSocketConfig implements WebFluxConfigurer {
     public SimpleUrlHandlerMapping handlerMapping() {
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(Map.of(
-                "/ws/prices", handler
+                "/ws/prices/*", handler
         ));
         mapping.setOrder(1);
         return mapping;

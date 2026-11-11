@@ -6,8 +6,8 @@ import org.springframework.jdbc.datasource.DelegatingDataSource;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 public class TenantAwareDataSource extends DelegatingDataSource {
 
@@ -31,14 +31,20 @@ public class TenantAwareDataSource extends DelegatingDataSource {
         return c;
     }
 
-    private void applyTenant(Connection c) {
+    /**
+     * Overwrites app.tenant_id on every checkout from the pool, so a pooled connection never keeps
+     * the previous request's tenant. Without a tenant the value is empty and the RLS policies
+     * (app_current_tenant() = NULL) return no rows and reject writes.
+     */
+    private void applyTenant(Connection c) throws SQLException {
         Long tenantId = TenantContext.get();
-        //TODO вирішити це питання
-        tenantId = (tenantId != null) ? tenantId : 1L;
-        try (Statement st = c.createStatement()) {
-            st.execute("SET app.tenant_id = " + tenantId);
+        String value = tenantId != null ? tenantId.toString() : "";
+        try (PreparedStatement st = c.prepareStatement("SELECT set_config('app.tenant_id', ?, false)")) {
+            st.setString(1, value);
+            st.execute();
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to apply tenant context on connection", e);
+            c.close();
+            throw e;
         }
     }
 

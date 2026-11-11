@@ -19,9 +19,15 @@ public class PriceConsumer {
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void onPrice(PriceEvent event) {
+        // events published before venues existed carry no slug and cannot be routed to a screen
+        if (event.tenantSlug() == null) {
+            log.warn("Skipping price event without venue: itemId={}", event.itemId());
+            return;
+        }
 
-        log.info(
-                "KAFKA → WS itemId={} price={} version={}",
+        log.debug(
+                "KAFKA → WS venue={} itemId={} price={} version={}",
+                event.tenantSlug(),
                 event.itemId(),
                 event.price(),
                 event.version()

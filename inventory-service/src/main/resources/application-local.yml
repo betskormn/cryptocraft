@@ -4,7 +4,11 @@ spring:
       enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
-    username: postgres
+    # non-superuser role, so PostgreSQL RLS applies; migrations run as postgres below
+    username: ${APP_DB_USER:cryptocraft_app}
+    password: ${APP_DB_PASSWORD:cryptocraft_app}
+  liquibase:
+    user: postgres
     password: mysecretpassword
   jpa:
     show-sql: true

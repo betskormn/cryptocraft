@@ -1,24 +1,64 @@
 package com.cryptocraft.inventoryservice.web;
 
+import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
 import com.cryptocraft.inventoryservice.tenant.TenantContext;
+import com.cryptocraft.inventoryservice.tenant.TenantRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 
+@RequiredArgsConstructor
 public class TenantFilter extends OncePerRequestFilter {
+
+    public static final String TENANT_HEADER = "X-Tenant-Id";
+
+    // service-to-service, platform (venue management) and tooling endpoints that are not scoped to a single tenant
+    private static final List<String> TENANT_FREE_PATHS = List.of(
+            "/internal/", "/api/v1/platform/", "/actuator", "/v3/api-docs", "/swagger-ui", "/error"
+    );
+
+    private final TenantRegistry tenantRegistry;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            return true;
+        }
+        String path = request.getRequestURI();
+        return TENANT_FREE_PATHS.stream().anyMatch(path::startsWith);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        Long tenantId = resolveTenantId(request);
+        if (tenantId == null) {
+            writeProblem(response, HttpStatus.BAD_REQUEST, "Tenant is required",
+                    "Header %s must contain a positive tenant id".formatted(TENANT_HEADER));
+            return;
+        }
+        Optional<TenantStatus> status = tenantRegistry.findStatus(tenantId);
+        if (status.isEmpty()) {
+            writeProblem(response, HttpStatus.NOT_FOUND, "Tenant not found",
+                    "Tenant %d does not exist".formatted(tenantId));
+            return;
+        }
+        if (status.get() == TenantStatus.SUSPENDED) {
+            writeProblem(response, HttpStatus.FORBIDDEN, "Tenant is suspended",
+                    "Tenant %d is suspended".formatted(tenantId));
+            return;
+        }
         try {
-            Long tenantId = resolveTenantId(request);
-            if (tenantId == null) {
-                throw new IllegalStateException("Tenant is required");
-            }
             TenantContext.set(tenantId);
             chain.doFilter(request, response);
         } finally {
@@ -26,8 +66,25 @@ public class TenantFilter extends OncePerRequestFilter {
         }
     }
 
+    // TODO: take the tenant from the JWT once the gateway validates tokens; until then the header is trusted (demo only)
     private Long resolveTenantId(HttpServletRequest request) {
-        // TODO: replace with JWT-based tenant
-        return 1L;
+        String header = request.getHeader(TENANT_HEADER);
+        if (header == null || header.isBlank()) {
+            return null;
+        }
+        try {
+            long tenantId = Long.parseLong(header.trim());
+            return tenantId > 0 ? tenantId : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void writeProblem(HttpServletResponse response, HttpStatus status, String title, String detail)
+            throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        response.getWriter().write("""
+                {"title":"%s","status":%d,"detail":"%s"}""".formatted(title, status.value(), detail));
     }
 }

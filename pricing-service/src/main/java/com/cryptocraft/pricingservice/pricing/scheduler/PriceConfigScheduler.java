@@ -1,15 +1,19 @@
 package com.cryptocraft.pricingservice.pricing.scheduler;
 
 import com.cryptocraft.pricingservice.client.InventoryClient;
-import com.cryptocraft.pricingservice.dto.ItemPriceDto;
 import com.cryptocraft.pricingservice.pricing.cache.PriceConfigCache;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
+/**
+ * Refreshes price configuration from Inventory. Checks every few seconds but only calls Inventory
+ * when the configuration is missing (startup, Inventory was down) or older than the refresh interval.
+ * A failed call keeps the previous configuration.
+ */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PriceConfigScheduler {
@@ -17,14 +21,21 @@ public class PriceConfigScheduler {
     private final InventoryClient inventoryClient;
     private final PriceConfigCache cache;
 
-//    @PostConstruct
-//    public void init() {
-//        refresh();
-//    }
+    @Value("${pricing.config-refresh-seconds:60}")
+    private long refreshSeconds;
 
-    @Scheduled(fixedRate = 60 * 60 * 1000)
+    private volatile long lastRefreshMillis = 0;
+
+    @Scheduled(fixedDelayString = "${pricing.config-retry-ms:5000}")
     public void refresh() {
-        List<ItemPriceDto> prices = inventoryClient.getAllPrices();
-        cache.update(prices);
+        long now = System.currentTimeMillis();
+        if (!cache.isEmpty() && now - lastRefreshMillis < refreshSeconds * 1000) {
+            return;
+        }
+        inventoryClient.getAllPrices().ifPresent(prices -> {
+            cache.update(prices);
+            lastRefreshMillis = now;
+            log.info("Price configuration refreshed: {} items", prices.size());
+        });
     }
 }

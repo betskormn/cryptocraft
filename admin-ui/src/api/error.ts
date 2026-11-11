@@ -6,6 +6,8 @@ export function getApiErrorMessage(err: unknown, fallback = "Something went wron
 
     if (data?.detail) return String(data.detail);
     if (data?.title) return String(data.title);
+    // inventory's GlobalErrorResponseDto
+    if (data?.description) return String(data.description);
     if (typeof data === "string") return data;
 
     return fallback;

@@ -9,6 +9,7 @@ import com.cryptocraft.inventoryservice.dao.Product;
 import com.cryptocraft.inventoryservice.exceptions.ProductNotFoundException;
 import com.cryptocraft.inventoryservice.mappers.ItemMapper;
 import com.cryptocraft.inventoryservice.mappers.ItemRequestMapper;
+import com.cryptocraft.inventoryservice.repositories.ItemPriceRepository;
 import com.cryptocraft.inventoryservice.repositories.ItemRepository;
 import com.cryptocraft.inventoryservice.repositories.ProductRepository;
 import com.cryptocraft.inventoryservice.services.ItemService;
@@ -33,6 +34,7 @@ import static java.lang.String.format;
 public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
+    private final ItemPriceRepository itemPriceRepository;
     private final ProductRepository productRepository;
     private final ItemRequestMapper itemRequestMapper;
     private final ItemMapper itemMapper;
@@ -143,6 +145,6 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public List<ItemPriceResponceDto> getAllPrices() {
-        return itemRepository.findAllPrices();
+        return itemPriceRepository.findAllPrices();
     }
 }

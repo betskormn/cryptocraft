@@ -16,6 +16,8 @@ import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 
+import TenantSwitcher from "./TenantSwitcher";
+
 const drawerWidth = 240;
 
 export default function AdminLayout() {
@@ -30,6 +32,7 @@ export default function AdminLayout() {
                         </Box>{" "}
                         Inventory
                     </Typography>
+                    <TenantSwitcher />
                 </Toolbar>
             </AppBar>
 
