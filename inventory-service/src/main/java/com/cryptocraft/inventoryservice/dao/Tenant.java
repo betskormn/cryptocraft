@@ -1,7 +1,7 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import com.cryptocraft.inventoryservice.config.converters.TenantStatusConverter;
-import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
+import com.cryptocraft.tenant.TenantStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;

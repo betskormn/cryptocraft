@@ -31,6 +31,23 @@ spring:
               uri: lb://INVENTORY-SERVICE
               predicates:
                 - Path=/api/v1/platform/tenants/**
+            # tables, visits, guests' bills and orders
+            - id: order-tables
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/tables/**
+            - id: order-table-sessions
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/table-sessions/**
+            - id: order-participants
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/participants/**
+            - id: order-orders
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/orders/**
             # live prices for TV screens and guests; the TV page builds its socket URL from its own host
             - id: price-streaming-ws
               uri: lb:ws://PRICE-STREAMING-SERVICE

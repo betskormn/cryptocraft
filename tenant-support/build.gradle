@@ -1,0 +1,28 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.cryptocraft'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Shared venue (tenant) support for services with tenant-scoped PostgreSQL data:
+// X-Tenant-Id filter, tenant context, RLS-aware DataSource. Services bring their own
+// TenantStatusLookup and their own RLS migrations (see inventory 005-tenant-isolation.sql).
+dependencies {
+    compileOnly platform(project(':platform'))
+
+    // provided by the consuming Spring Boot service
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.springframework.boot:spring-boot-starter-jdbc'
+    compileOnly 'jakarta.persistence:jakarta.persistence-api'
+}

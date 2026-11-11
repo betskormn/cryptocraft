@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -51,6 +52,10 @@ public class PriceConfigCache {
                 p.basePrice(),
                 p.minPrice(),
                 p.maxPrice());
+    }
+
+    public Optional<PriceConfig> get(Long itemId) {
+        return Optional.ofNullable(configs.get(itemId));
     }
 
     public Collection<PriceConfig> getAll() {

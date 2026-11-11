@@ -4,7 +4,7 @@ import com.cryptocraft.inventoryservice.controllers.dto.request.TenantRequestDto
 import com.cryptocraft.inventoryservice.controllers.dto.request.TenantUpdateRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.TenantResponseDto;
 import com.cryptocraft.inventoryservice.dao.Tenant;
-import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
+import com.cryptocraft.tenant.TenantStatus;
 import com.cryptocraft.inventoryservice.exceptions.TenantAlreadyExistsException;
 import com.cryptocraft.inventoryservice.mappers.TenantMapper;
 import com.cryptocraft.inventoryservice.repositories.TenantCatalogRepository;

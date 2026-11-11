@@ -28,6 +28,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+      # creates the `orders` database for order-service on a new volume
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 3s
@@ -147,6 +149,33 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007
     command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "price-streaming-service.jar" ]
+    networks:
+      - cryptocraft-network
+
+  order-service:
+    image: order-service:latest
+    build:
+      context: ./order-service
+    ports:
+      - "8084:8084"
+      - "5008:5008"
+    container_name: order-service
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "order-service.jar" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:8084/actuator/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 40
     networks:
       - cryptocraft-network
 

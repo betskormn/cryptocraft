@@ -15,10 +15,20 @@ import {
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 
 import TenantSwitcher from "./TenantSwitcher";
 
 const drawerWidth = 240;
+
+const NAV_ITEMS = [
+    { to: "/brands", label: "Brands", Icon: StorefrontOutlinedIcon },
+    { to: "/products", label: "Products", Icon: Inventory2OutlinedIcon },
+    { to: "/items", label: "Items", Icon: CategoryOutlinedIcon },
+    { to: "/tables", label: "Tables", Icon: TableRestaurantOutlinedIcon },
+    { to: "/visits", label: "Visits", Icon: ReceiptLongOutlinedIcon },
+];
 
 export default function AdminLayout() {
     return (
@@ -30,7 +40,7 @@ export default function AdminLayout() {
                         <Box component="span" sx={{ color: "primary.main" }}>
                             •
                         </Box>{" "}
-                        Inventory
+                        Venue
                     </Typography>
                     <TenantSwitcher />
                 </Toolbar>
@@ -55,57 +65,26 @@ export default function AdminLayout() {
 
                 <Box sx={{ px: 1.2, py: 1 }}>
                     <List sx={{ display: "grid", gap: 0.5 }}>
-                        <ListItemButton
-                            component={NavLink}
-                            to="/brands"
-                            // NavLink adds the "active" class styled below
-                            sx={{
-                                borderRadius: 2,
-                                "&.active": {
-                                    backgroundColor: "rgba(242,162,58,0.12)",
-                                    border: "1px solid rgba(242,162,58,0.22)",
-                                },
-                            }}
-                        >
-                            <ListItemIcon>
-                                <StorefrontOutlinedIcon />
-                            </ListItemIcon>
-                            <ListItemText primary="Brands" />
-                        </ListItemButton>
-
-                        <ListItemButton
-                            component={NavLink}
-                            to="/products"
-                            sx={{
-                                borderRadius: 2,
-                                "&.active": {
-                                    backgroundColor: "rgba(242,162,58,0.12)",
-                                    border: "1px solid rgba(242,162,58,0.22)",
-                                },
-                            }}
-                        >
-                            <ListItemIcon>
-                                <Inventory2OutlinedIcon />
-                            </ListItemIcon>
-                            <ListItemText primary="Products" />
-                        </ListItemButton>
-
-                        <ListItemButton
-                            component={NavLink}
-                            to="/items"
-                            sx={{
-                                borderRadius: 2,
-                                "&.active": {
-                                    backgroundColor: "rgba(242,162,58,0.12)",
-                                    border: "1px solid rgba(242,162,58,0.22)",
-                                },
-                            }}
-                        >
-                            <ListItemIcon>
-                                <CategoryOutlinedIcon />
-                            </ListItemIcon>
-                            <ListItemText primary="Items" />
-                        </ListItemButton>
+                        {NAV_ITEMS.map(({ to, label, Icon }) => (
+                            <ListItemButton
+                                key={to}
+                                component={NavLink}
+                                to={to}
+                                // NavLink adds the "active" class styled below
+                                sx={{
+                                    borderRadius: 2,
+                                    "&.active": {
+                                        backgroundColor: "rgba(242,162,58,0.12)",
+                                        border: "1px solid rgba(242,162,58,0.22)",
+                                    },
+                                }}
+                            >
+                                <ListItemIcon>
+                                    <Icon />
+                                </ListItemIcon>
+                                <ListItemText primary={label} />
+                            </ListItemButton>
+                        ))}
                     </List>
                 </Box>
             </Drawer>

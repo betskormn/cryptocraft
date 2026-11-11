@@ -56,6 +56,10 @@ eureka:
     lease-renewal-interval-in-seconds: 5
     lease-expiration-duration-in-seconds: 15
 
+tenant:
+  # served without X-Tenant-Id: service-to-service, venue management (platform) and tooling
+  free-paths: /internal/,/api/v1/platform/,/actuator,/v3/api-docs,/swagger-ui,/error
+
 server:
   port: 8081
 

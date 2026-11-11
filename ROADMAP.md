@@ -55,16 +55,20 @@
 - [x] **Списання за техкартами:** `POST /api/v1/stock-consumptions` (ідемпотентне за `orderId`, нестача повертається як попередження, залишок не нижче нуля)
 - [x] **Порядок на TV:** поле `display_order` в item-і («Menu #» в адмінці); порядок з `menu/menu.json` перенесено, файл видалено
 
-## Етап 2. Order Service
+## ✅ Етап 2. Order Service — готово
 
-- [ ] **Спільний тенант-модуль:** винести `TenantFilter`, `TenantAwareDataSource`, `TenantContext` і шаблон RLS-міграції з Inventory в окремий Gradle-модуль
-- [ ] **Модель:** `TableSession` (візит за столиком) → `Participant` (гість) → `Order` → `OrderLine` (власник-гість, ціна й час фіксації)
-- [ ] **Кошик гостя** без фіксації ціни; при «Відправити» — ціни з Pricing фіксуються, позиції йдуть у рахунок
-- [ ] **Списання складу** при відправці (виклик Inventory з етапу 1)
-- [ ] **Ліміти:** максимум позицій у замовленні та кількості в рядку (anti-abuse)
-- [ ] **Поточна ціна для Order:** Pricing віддає актуальну ціну item-а (ендпоїнт або кеш з Kafka)
-- [ ] **Події в Kafka:** `OrderPlaced` (для KDS, Pricing, Analytics), `OrderStatusChanged`
-- [ ] Тести ізоляції та сценарію «два гості за столиком замовили той самий коктейль за різною ціною»
+- [x] **Спільний модуль `tenant-support`:** фільтр `X-Tenant-Id`, `TenantContext`, `TenantAwareDataSource`, автоконфігурація; сервіс дає лише `TenantStatusLookup` (Inventory — своя БД, Order — через Inventory)
+- [x] **Окрема база `orders`** зі своєю роллю `cryptocraft_order` і RLS
+- [x] **Модель:** столик (`VenueTable`, QR-токен) → візит (`TableSession`) → гість (`SessionParticipant`, анонімний `participantId`) → `Order` → `OrderLine` (ціна зафіксована)
+- [x] **Кошик на клієнті**; `POST /api/v1/orders` фіксує ціни з Pricing (`/internal/current-prices`) і додає замовлення в рахунок гостя; ідемпотентно за `clientOrderId`
+- [x] **Списання складу** після коміту (Inventory `stock-consumptions`); якщо Inventory недоступний — повтор фоновою задачею
+- [x] **Ліміти:** до 30 позицій, до 10 одиниць item-а
+- [x] **Подія `OrderPlaced`** в Kafka (`order-events`) з позиціями MEAL / DRINK
+- [x] **Рахунки:** окремо для кожного гостя (`/participants/me/bill`) і столика по гостях (`/table-sessions/{id}/bill`); закриття візиту
+- [x] **Адмінка:** сторінки «Tables» (QR-токени) і «Visits» (рахунки, закриття візиту)
+- [x] Тести: 12 інтеграційних (`OrderServiceIntegrationTest`), у т. ч. ізоляція та «двоє гостей — той самий коктейль за різною ціною»
+- [ ] `OrderStatusChanged` — разом з KDS (етап 3)
+- [ ] Outbox для `OrderPlaced` (зараз best effort: збій відправки лише логується)
 
 ## Етап 3. KDS (кухня / бар)
 

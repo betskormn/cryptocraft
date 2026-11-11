@@ -1,6 +1,6 @@
 package com.cryptocraft.inventoryservice.config.converters;
 
-import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
+import com.cryptocraft.tenant.TenantStatus;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 

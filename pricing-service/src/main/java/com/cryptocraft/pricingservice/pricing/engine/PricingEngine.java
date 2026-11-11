@@ -48,6 +48,11 @@ public class PricingEngine {
         publish(config, clamp(currentPrice(config), config));
     }
 
+    // the price a guest pays right now: last published price, or the base price before the first move
+    public BigDecimal quote(PriceConfig config) {
+        return clamp(currentPrice(config), config);
+    }
+
     private BigDecimal currentPrice(PriceConfig config) {
         BigDecimal current = currentCache.get(config.itemId());
         return current != null ? current : config.basePrice();

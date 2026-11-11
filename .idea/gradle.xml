@@ -12,9 +12,11 @@
             <option value="$PROJECT_DIR$/authentication-service" />
             <option value="$PROJECT_DIR$/eureka-server" />
             <option value="$PROJECT_DIR$/inventory-service" />
+            <option value="$PROJECT_DIR$/order-service" />
             <option value="$PROJECT_DIR$/platform" />
             <option value="$PROJECT_DIR$/price-streaming-service" />
             <option value="$PROJECT_DIR$/pricing-service" />
+            <option value="$PROJECT_DIR$/tenant-support" />
           </set>
         </option>
       </GradleProjectSettings>

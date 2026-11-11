@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: order-service
+  profiles:
+    # IDE / bootRun without flags; containers set SPRING_PROFILES_ACTIVE=prod
+    default: local
+  datasource:
+    # the service connects as a non-superuser role so PostgreSQL RLS applies (001-order-schema.sql)
+    username: ${ORDER_DB_USER:cryptocraft_order}
+    password: ${ORDER_DB_PASSWORD:cryptocraft_order}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      pool-name: order-hikari
+      auto-commit: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    # migrations run as the database owner (creates the application role); the url must be explicit:
+    # Boot cannot derive it from the tenant-aware DataSource wrapper
+    url: ${spring.datasource.url}
+    user: ${DB_ADMIN_USER:postgres}
+    password: ${DB_ADMIN_PASSWORD:mysecretpassword}
+    parameters:
+      order_db_user: ${ORDER_DB_USER:cryptocraft_order}
+      order_db_password: ${ORDER_DB_PASSWORD:cryptocraft_order}
+  kafka:
+    producer:
+      # order events (OrderEventPublisher); do not hold a request long if Kafka is down
+      properties:
+        max.block.ms: 5000
+  docker:
+    compose:
+      # infrastructure is started explicitly (see README); Boot's compose support would also
+      # swap the datasource for the postgres superuser and bypass RLS
+      enabled: false
+
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+  instance:
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+tenant:
+  # served without X-Tenant-Id: service-to-service and tooling
+  free-paths: /internal/,/actuator,/v3/api-docs,/swagger-ui,/error
+
+order:
+  # retry of recipe write-offs that failed when the order was placed (Inventory down)
+  stock-retry-ms: 30000
+
+server:
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -25,6 +25,7 @@ repositories {
 
 dependencies {
     implementation platform(project(':platform'))
+    implementation project(':tenant-support')
     annotationProcessor platform(project(':platform'))
 
     implementation 'org.springframework.boot:spring-boot-starter-web'

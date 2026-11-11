@@ -213,7 +213,13 @@ cd admin-ui && npm run dev
 docker compose up -d postgres zookeeper kafka kafka-ui eureka-server
 ```
 
-Далі запустити з IDE `inventory-service`, `pricing-service`, `price-streaming-service`, `api-gateway` (без профілю), і `npm run dev` в `admin-ui`.
+Далі запустити з IDE `inventory-service`, `pricing-service`, `price-streaming-service`, `order-service`, `api-gateway` (без профілю), і `npm run dev` в `admin-ui`.
+
+База `orders` для Order Service створюється скриптом `docker/postgres/init` лише на новому томі Postgres. Для тому, створеного раніше:
+
+```bash
+docker exec postgres psql -U postgres -c "CREATE DATABASE orders"
+```
 
 ### Запуск: production-подібний стек
 
@@ -234,3 +240,4 @@ docker compose -f docker-compose-prod.yml up -d --build
 | Eureka | http://localhost:8761 (dev) |
 | Kafka UI | http://localhost:8085 (dev) |
 | Swagger Inventory | http://localhost:8081/swagger-ui.html (dev) |
+| Swagger Order | http://localhost:8084/swagger-ui.html (dev) |

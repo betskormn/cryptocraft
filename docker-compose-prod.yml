@@ -25,6 +25,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql
+      # creates the `orders` database for order-service on a new volume
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 3s
@@ -114,6 +116,30 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+    networks:
+      - cryptocraft-network
+
+  order-service:
+    build:
+      context: ./order-service
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?set ORDER_DB_PASSWORD in .env}
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "order-service.jar" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:8084/actuator/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 40
     networks:
       - cryptocraft-network
 

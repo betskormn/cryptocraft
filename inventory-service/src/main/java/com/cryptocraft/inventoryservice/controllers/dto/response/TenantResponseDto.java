@@ -1,6 +1,6 @@
 package com.cryptocraft.inventoryservice.controllers.dto.response;
 
-import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
+import com.cryptocraft.tenant.TenantStatus;
 
 public record TenantResponseDto(
         Long tenantId,

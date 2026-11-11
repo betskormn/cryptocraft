@@ -1,6 +1,6 @@
 package com.cryptocraft.inventoryservice.controllers.dto.request;
 
-import com.cryptocraft.inventoryservice.dao.enums.TenantStatus;
+import com.cryptocraft.tenant.TenantStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
