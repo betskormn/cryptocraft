@@ -1,0 +1,24 @@
+[
+  { "itemId": 5,  "name": "Espresso",                 "type": "DRINK", "order": 1 },
+
+  { "itemId": 13, "name": "French fries",            "type": "MEAL",  "order": 2 },
+
+  { "itemId": 7,  "name": "Martini with olives",      "type": "DRINK", "order": 3 },
+  { "itemId": 8,  "name": "Whiskey-Cola",              "type": "DRINK", "order": 4 },
+  { "itemId": 9,  "name": "Old fashioned",     "type": "DRINK", "order": 5 },
+
+  { "itemId": 10, "name": "Gin and tonic",              "type": "DRINK", "order": 6 },
+  { "itemId": 3,  "name": "Cuba Libre",              "type": "DRINK", "order": 7 },
+  { "itemId": 4,  "name": "Negroni",      "type": "DRINK", "order": 8 },
+  { "itemId": 6,  "name": "Vodka tonic",           "type": "DRINK", "order": 9 },
+  { "itemId": 2,  "name": "Ginger highball",         "type": "DRINK", "order": 10 },
+  { "itemId": 1,  "name": "Lemonade (homemade)",      "type": "DRINK", "order": 11 },
+
+  { "itemId": 12, "name": "Pizza Margherita",          "type": "MEAL",  "order": 12 },
+  { "itemId": 14, "name": "Spaghetti Pomodoro",        "type": "MEAL",  "order": 13 },
+  { "itemId": 11, "name": "Мохіто",       "type": "DRINK", "order": 14 },
+
+  { "itemId": 17, "name": "Chicken roll in tortilla",  "type": "MEAL",  "order": 15 },
+  { "itemId": 16, "name": "Classic cheeseburger",     "type": "MEAL",  "order": 16 },
+  { "itemId": 15, "name": "BBQ burger with bacon",    "type": "MEAL",  "order": 17 }
+]

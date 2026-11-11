@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Live Prices</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+
+        body {
+            background: #05080c;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+
+        /* grid фон як на біржі */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(#111 1px, transparent 1px),
+            linear-gradient(90deg, #111 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+        }
+
+        .up {
+            color: #00ff88;
+            text-shadow: 0 0 8px #00ff88;
+        }
+
+        .down {
+            color: #ff4d4d;
+            text-shadow: 0 0 8px #ff4d4d;
+        }
+
+        .price {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="text-gray-200 p-10">
+
+<h1 class="text-5xl font-bold text-teal-400 mb-8">
+    MENU
+</h1>
+
+<div id="content"></div>
+
+<script>
+
+    const ws = new WebSocket("ws://localhost:8083/ws/prices");
+
+    const prices = {};
+    const history = {};
+    let menuMap = {};
+
+    // ✅ LOAD MENU
+    fetch("/menu/menu.json?ts=" + Date.now())
+        .then(r => r.json())
+        .then(menu => {
+            menu.sort((a, b) => a.order - b.order);
+
+            menu.forEach(item => {
+                menuMap[item.itemId] = item;
+                history[item.itemId] = [];
+            });
+
+            renderLayout(menu);
+        });
+
+    // ✅ LAYOUT
+    function renderLayout(menu) {
+
+        const container = document.getElementById("content");
+
+        const groups = {
+            DRINK: [],
+            MEAL: []
+        };
+
+        menu.forEach(i => groups[i.type].push(i));
+
+        container.innerHTML = `
+            ${renderGroup("DRINKS", groups.DRINK)}
+            ${renderGroup("MEAL", groups.MEAL)}
+        `;
+    }
+
+    function renderGroup(title, items) {
+        return `
+            <div class="mb-10">
+                <div class="text-2xl text-teal-400 mb-4">${title}</div>
+                ${items.map(i => row(i)).join("")}
+            </div>
+        `;
+    }
+
+    function row(item) {
+        return `
+        <div id="row-${item.itemId}"
+             class="grid grid-cols-[2fr_1fr_1fr_2fr] gap-4 py-3 border-b border-gray-800 items-center text-center">
+
+            <div class="text-lg uppercase tracking-wide text-gray-300">
+                ${item.name}
+            </div>
+
+            <div id="price-${item.itemId}"
+                 class="price text-2xl font-bold tracking-wider">
+                ---
+            </div>
+
+            <div id="delta-${item.itemId}"
+                 class="text-lg font-semibold tracking-wide">
+                ---
+            </div>
+
+            <div class="flex justify-center">
+                <canvas id="chart-${item.itemId}" width="300" height="60"></canvas>
+            </div>
+        </div>
+    `;
+    }
+
+
+    // ✅ WS EVENTS
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        const id = data.itemId;
+        const price = data.price;
+
+        const old = prices[id];
+        prices[id] = price;
+
+        if (!history[id]) history[id] = [];
+        history[id].push({price});
+
+        if (history[id].length > 50) {
+            history[id].shift();
+        }
+
+        updateRow(id, price, old);
+        drawCandles(id);
+    };
+
+    function updateRow(id, price, old) {
+
+        const priceEl = document.getElementById(`price-${id}`);
+        const deltaEl = document.getElementById(`delta-${id}`);
+
+        priceEl.innerText = price.toFixed(2);
+
+        if (old !== undefined) {
+            const diff = (price - old).toFixed(2);
+
+            if (diff > 0) {
+                priceEl.className = "price up";
+                deltaEl.className = "up";
+                deltaEl.innerText = "↑ +" + diff;
+            } else if (diff < 0) {
+                priceEl.className = "price down";
+                deltaEl.className = "down";
+                deltaEl.innerText = "↓ " + diff;
+            }
+        }
+    }
+
+    function drawCandles(id) {
+
+        const canvas = document.getElementById(`chart-${id}`);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext("2d");
+
+        const data = history[id];
+        if (!data || data.length < 2) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        const prices = data.map(d => d.price);
+
+        const max = Math.max(...prices);
+        const min = Math.min(...prices);
+
+        const candleWidth = Math.max(2, w / data.length);
+
+        for (let i = 1; i < data.length; i++) {
+
+            const prevPrice = data[i - 1].price;
+            const currPrice = data[i].price;
+
+            // ✅ нормалізовані координати
+            const prevY = h - ((prevPrice - min) / (max - min || 1)) * h;
+            const currY = h - ((currPrice - min) / (max - min || 1)) * h;
+
+            const isUp = currPrice >= prevPrice;
+            const color = isUp ? "#00ff88" : "#ff4d4d";
+
+            const padding = 10;
+            const usableWidth = w - padding * 2;
+            const candleWidth = usableWidth / data.length;
+
+            const x = padding + i * candleWidth;
+
+            const top = Math.min(prevY, currY);
+            const bottom = Math.max(prevY, currY);
+            const height = Math.max(3, bottom - top);
+
+            ctx.fillStyle = color;
+
+            // ✅ ТІЛО СВІЧКИ
+            ctx.fillRect(x, top, candleWidth - 2, height);
+
+            // ✅ WICK (тонка лінія)
+            ctx.fillRect(
+                x + candleWidth / 2 - 1,
+                top - 4,
+                2,
+                height + 8
+            );
+        }
+    }
+
+
+</script>
+
+</body>
+</html>

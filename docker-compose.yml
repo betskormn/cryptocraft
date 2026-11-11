@@ -63,6 +63,30 @@ services:
     networks:
       - cryptocraft-network
 
+  price-streaming-service:
+    image: price-streaming-service:latest
+    build:
+      context: ./price-streaming-service
+    ports:
+      - "8083:8083"
+      - "5007:5007"
+    container_name: price-streaming-service
+    depends_on:
+      - eureka-server
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007
+    command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "price-streaming-service.jar" ]
+    networks:
+      - cryptocraft-network
+    volumes:
+      - ./menu:/menu
+
+
+
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper

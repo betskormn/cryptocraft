@@ -16,7 +16,8 @@ public class PricingScheduler {
 
     private int currentGroup = 0;
 
-    @Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 100)
+//    @Scheduled(fixedRate = 1000)
     public void tick() {
         System.out.println("Running group: " + currentGroup);
         List<Long> items = cache.getGroup(currentGroup);

@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: price-streaming-service
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: price-stream-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+    non-secure-port: 8083
+
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+
+server:
+  port: 8083
+
+logging:
+  level:
+    root: INFO
+    org.apache.kafka: INFO

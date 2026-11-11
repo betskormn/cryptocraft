@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Prices</title>
+
+    <style>
+        body {
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 22px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        th {
+            background: #161b22;
+        }
+
+        .up {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+
+        .down {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Live Prices</h1>
+
+<table>
+    <thead>
+    <tr>
+        <th>Item</th>
+        <th>Price</th>
+        <th>Delta</th>
+    </tr>
+    </thead>
+    <tbody id="prices"></tbody>
+</table>
+
+<script>
+
+    const ws = new WebSocket("ws://localhost:8083/ws/prices");
+
+    const prices = {}; // cache по itemId
+
+    ws.onopen = () => console.log("WS CONNECTED");
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const itemId = data.itemId;
+        const newPrice = parseFloat(data.price);
+
+        const old = prices[itemId];
+        prices[itemId] = newPrice;
+
+        let row = document.getElementById("row-" + itemId);
+
+        if (!row) {
+            row = document.createElement("tr");
+            row.id = "row-" + itemId;
+
+            row.innerHTML = `
+                <td>${itemId}</td>
+                <td id="price-${itemId}">${newPrice.toFixed(2)}</td>
+                <td id="delta-${itemId}">-</td>
+            `;
+
+            document.getElementById("prices").appendChild(row);
+            return;
+        }
+
+        const priceCell = document.getElementById("price-" + itemId);
+        const deltaCell = document.getElementById("delta-" + itemId);
+
+        priceCell.innerText = newPrice.toFixed(2);
+
+        if (old !== undefined) {
+            const diff = (newPrice - old).toFixed(2);
+
+            if (diff > 0) {
+                priceCell.className = "up";
+                deltaCell.className = "up";
+                deltaCell.innerHTML = "&#8593; +" + diff;
+            } else if (diff < 0) {
+                priceCell.className = "down";
+                deltaCell.className = "down";
+                deltaCell.innerHTML = "&#8595; " + diff;
+            } else {
+                deltaCell.innerText = "0.00";
+            }
+
+            // анімація (блимання)
+            setTimeout(() => {
+                priceCell.className = "";
+                deltaCell.className = "";
+            }, 800);
+        }
+    };
+
+</script>
+
+</body>
+</html>
