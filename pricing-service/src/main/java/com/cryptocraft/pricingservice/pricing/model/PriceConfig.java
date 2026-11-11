@@ -9,6 +9,8 @@ public record PriceConfig(
         int tickSeconds,
         String name,
         String type,
+        Integer displayOrder,
+        boolean stopped,
         BigDecimal basePrice,
         BigDecimal minPrice,
         BigDecimal maxPrice

@@ -9,6 +9,7 @@ import {
     InputAdornment,
     Paper,
     Stack,
+    Switch,
     Table,
     TableBody,
     TableCell,
@@ -29,6 +30,7 @@ import {
     createItem,
     deleteItem,
     getAllItems,
+    setItemStopped,
     updateItem,
     type ItemRequestDto,
     type ItemResponseDto,
@@ -39,7 +41,7 @@ import ItemDialog from "../../components/ItemDialog";
 import { includes } from "../../utils/text";
 import { useTableQuery } from "../../hooks/useTableQuery";
 
-type SortKey = "id" | "name" | "type" | "products" | "price";
+type SortKey = "id" | "order" | "name" | "type" | "products" | "price";
 
 export default function ItemListPage() {
     const qc = useQueryClient();
@@ -49,8 +51,11 @@ export default function ItemListPage() {
     const [selected, setSelected] = useState<ItemResponseDto | null>(null);
     const [errorText, setErrorText] = useState<string | null>(null);
 
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<ItemResponseDto | null>(null);
+
+    const [stopListError, setStopListError] = useState<string | null>(null);
 
     const itemsQuery = useQuery({ queryKey: ["items"], queryFn: getAllItems });
     const productsQuery = useQuery({ queryKey: ["products"], queryFn: getAllProducts });
@@ -81,8 +86,19 @@ export default function ItemListPage() {
         onSuccess: async () => {
             setDeleteOpen(false);
             setDeleteTarget(null);
+            setDeleteError(null);
             await qc.invalidateQueries({ queryKey: ["items"] });
         },
+        onError: (e) => setDeleteError(getApiErrorMessage(e, "Failed to delete item")),
+    });
+
+    const stopListMut = useMutation({
+        mutationFn: ({ id, stopped }: { id: number; stopped: boolean }) => setItemStopped(id, stopped),
+        onSuccess: async () => {
+            setStopListError(null);
+            await qc.invalidateQueries({ queryKey: ["items"] });
+        },
+        onError: (e) => setStopListError(getApiErrorMessage(e, "Failed to change the stop-list")),
     });
 
     const items = useMemo(
@@ -100,6 +116,7 @@ export default function ItemListPage() {
         filterFn: (it, q) => includes(it.itemId, q) || includes(it.name, q) || includes(it.type, q),
         sortKeys: {
             id: (it) => it.itemId,
+            order: (it) => it.displayOrder,
             name: (it) => it.name,
             type: (it) => it.type,
             products: (it) => it.products?.length ?? 0,
@@ -152,6 +169,12 @@ export default function ItemListPage() {
                 </Stack>
             </Stack>
 
+            {stopListError ? (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setStopListError(null)}>
+                    {stopListError}
+                </Alert>
+            ) : null}
+
             <Paper variant="outlined">
                 <Table size="small">
                     <TableHead>
@@ -166,6 +189,18 @@ export default function ItemListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
+                            <TableCell width={90} sortDirection={tq.sort.key === "order" ? tq.sort.dir : false}>
+                                <Tooltip title="Position on menus and TV screens">
+                                    <TableSortLabel
+                                        active={tq.sort.key === "order"}
+                                        direction={tq.sort.key === "order" ? tq.sort.dir : "asc"}
+                                        onClick={() => tq.toggleSort("order")}
+                                    >
+                                        Menu #
+                                    </TableSortLabel>
+                                </Tooltip>
+                            </TableCell>
+
                             <TableCell sortDirection={tq.sort.key === "name" ? tq.sort.dir : false}>
                                 <TableSortLabel
                                     active={tq.sort.key === "name"}
@@ -176,7 +211,7 @@ export default function ItemListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
-                            <TableCell width={180} sortDirection={tq.sort.key === "type" ? tq.sort.dir : false}>
+                            <TableCell width={110} sortDirection={tq.sort.key === "type" ? tq.sort.dir : false}>
                                 <TableSortLabel
                                     active={tq.sort.key === "type"}
                                     direction={tq.sort.key === "type" ? tq.sort.dir : "asc"}
@@ -186,7 +221,7 @@ export default function ItemListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
-                            <TableCell width={160} sortDirection={tq.sort.key === "products" ? tq.sort.dir : false}>
+                            <TableCell width={110} sortDirection={tq.sort.key === "products" ? tq.sort.dir : false}>
                                 <TableSortLabel
                                     active={tq.sort.key === "products"}
                                     direction={tq.sort.key === "products" ? tq.sort.dir : "asc"}
@@ -197,7 +232,7 @@ export default function ItemListPage() {
                             </TableCell>
 
                             <TableCell
-                                width={140}
+                                width={100}
                                 sortDirection={tq.sort.key === "price" ? tq.sort.dir : false}
                             >
                                 <TableSortLabel
@@ -209,7 +244,13 @@ export default function ItemListPage() {
                                 </TableSortLabel>
                             </TableCell>
 
-                            <TableCell width={160} align="right">
+                            <TableCell width={110}>
+                                <Tooltip title="Off = on the stop-list: shown on the menu, cannot be ordered">
+                                    <span>On sale</span>
+                                </Tooltip>
+                            </TableCell>
+
+                            <TableCell width={110} align="right">
                                 Actions
                             </TableCell>
                         </TableRow>
@@ -219,11 +260,22 @@ export default function ItemListPage() {
                         {tq.paged.map((it) => (
                             <TableRow key={it.itemId} hover>
                                 <TableCell>{it.itemId}</TableCell>
-                                <TableCell>{it.name}</TableCell>
+                                <TableCell sx={{ color: "text.secondary" }}>{it.displayOrder ?? "—"}</TableCell>
+                                <TableCell sx={{ opacity: it.stopped ? 0.5 : 1 }}>{it.name}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>{it.type}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>{it.products?.length ?? 0}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>
                                     {it.basePrice}
+                                </TableCell>
+
+                                <TableCell>
+                                    <Switch
+                                        size="small"
+                                        checked={!it.stopped}
+                                        disabled={stopListMut.isPending}
+                                        onChange={(e) => stopListMut.mutate({ id: it.itemId, stopped: !e.target.checked })}
+                                        slotProps={{ input: { "aria-label": `${it.name} on sale` } }}
+                                    />
                                 </TableCell>
 
                                 <TableCell align="right">
@@ -251,6 +303,7 @@ export default function ItemListPage() {
                             size="small"
                             disabled={delMut.isPending}
                             onClick={() => {
+                                setDeleteError(null);
                                 setDeleteTarget(it);
                                 setDeleteOpen(true);
                             }}
@@ -271,7 +324,7 @@ export default function ItemListPage() {
 
                         {tq.totalFiltered === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6}>
+                                <TableCell colSpan={8}>
                                     {tq.search.trim() ? "No matches found" : "No items yet"}
                                 </TableCell>
                             </TableRow>
@@ -293,41 +346,46 @@ export default function ItemListPage() {
                 />
             </Paper>
 
-            <ItemDialog
-                open={createOpen}
-                mode="create"
-                loading={createMut.isPending}
-                errorText={errorText}
-                products={products}
-                onClose={() => {
-                    if (!createMut.isPending) setCreateOpen(false);
-                }}
-                onSubmit={(dto) => createMut.mutate(dto)}
-            />
+            {createOpen && (
+                <ItemDialog
+                    open
+                    mode="create"
+                    loading={createMut.isPending}
+                    errorText={errorText}
+                    products={products}
+                    onClose={() => {
+                        if (!createMut.isPending) setCreateOpen(false);
+                    }}
+                    onSubmit={(dto) => createMut.mutate(dto)}
+                />
+            )}
 
-            <ItemDialog
-                open={editOpen}
-                mode="edit"
-                loading={editMut.isPending}
-                errorText={errorText}
-                products={products}
-                initial={selected}
-                onClose={() => {
-                    if (!editMut.isPending) {
-                        setEditOpen(false);
-                        setSelected(null);
-                    }
-                }}
-                onSubmit={(dto) => {
-                    if (!selected) return;
-                    editMut.mutate({ id: selected.itemId, dto });
-                }}
-            />
+            {editOpen && selected && (
+                <ItemDialog
+                    open
+                    mode="edit"
+                    loading={editMut.isPending}
+                    errorText={errorText}
+                    products={products}
+                    initial={selected}
+                    onClose={() => {
+                        if (!editMut.isPending) {
+                            setEditOpen(false);
+                            setSelected(null);
+                        }
+                    }}
+                    onSubmit={(dto) => {
+                        if (!selected) return;
+                        editMut.mutate({ id: selected.itemId, dto });
+                    }}
+                />
+            )}
 
             <ConfirmDialog
                 open={deleteOpen}
                 title={`Delete item "${deleteTarget?.name ?? ""}"?`}
                 loading={delMut.isPending}
+                errorText={deleteError}
                 onCancel={() => {
                     if (!delMut.isPending) {
                         setDeleteOpen(false);

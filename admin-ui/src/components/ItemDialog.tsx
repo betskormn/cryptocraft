@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import {
     Alert,
     Button,
@@ -6,7 +6,6 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    Grid,
     IconButton,
     MenuItem,
     Paper,
@@ -19,10 +18,13 @@ import AddIcon from "@mui/icons-material/Add";
 
 import { TYPE_OPTIONS, TYPE_LABEL, type Type } from "../api/items.api";
 import type { ItemRequestDto, ItemResponseDto } from "../api/items.api";
-import type { ProductResponseDto } from "../api/products.api";
+import { UNIT_LABEL, type ProductResponseDto } from "../api/products.api";
+import { addQuantity, formatQuantity, parseQuantity } from "../utils/quantity";
 
-type ItemProductRow = { productId: number | ""; quantity: number };
+// quantity kept as text so decimals like "0.05" can be typed
+type ItemProductRow = { productId: number | ""; quantity: string };
 
+// mounted only while open (see ItemListPage), so the form starts from `initial` on every opening
 type Props = {
     open: boolean;
     mode: "create" | "edit";
@@ -44,61 +46,54 @@ export default function ItemDialog({
                                        onClose,
                                        onSubmit,
                                    }: Props) {
-    const [name, setName] = useState("");
-    const [recipe, setRecipe] = useState("");
-    const [image, setImage] = useState("");
-    const [type, setType] = useState<Type>("");
-    const [basePrice, setBasePrice] = useState<number>(0);
-    const [minPrice, setMinPrice] = useState<number>(0);
-    const [maxPrice, setMaxPrice] = useState<number>(0);
-    const [rows, setRows] = useState<ItemProductRow[]>([{ productId: "", quantity: 1 }]);
+    const editing = mode === "edit" && initial ? initial : null;
 
-    useEffect(() => {
-        if (!open) return;
+    const [name, setName] = useState(editing?.name ?? "");
+    const [recipe, setRecipe] = useState(editing?.recipe ?? "");
+    const [image, setImage] = useState(editing?.image ?? "");
+    const [type, setType] = useState<Type | "">((editing?.type as Type | undefined) ?? "");
+    // kept as text so a field can be cleared while typing
+    const [basePrice, setBasePrice] = useState(editing ? String(editing.basePrice) : "");
+    const [minPrice, setMinPrice] = useState(editing ? String(editing.minPrice) : "");
+    const [maxPrice, setMaxPrice] = useState(editing ? String(editing.maxPrice) : "");
+    const [displayOrder, setDisplayOrder] = useState(editing?.displayOrder != null ? String(editing.displayOrder) : "");
+    const [rows, setRows] = useState<ItemProductRow[]>(() =>
+        editing && editing.products.length > 0
+            ? editing.products
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => ({ productId: p.productId, quantity: formatQuantity(p.quantity ?? 1) }))
+            : [{ productId: "", quantity: "1" }]
+    );
 
-        if (mode === "edit" && initial) {
-            setName(initial.name ?? "");
-            setRecipe(initial.recipe ?? "");
-            setImage(initial.image ?? "");
-            setType((initial.type ?? "") as Type);
-            setBasePrice(initial.basePrice ?? 0);
-            setMinPrice(initial.minPrice ?? 0);
-            setMaxPrice(initial.maxPrice ?? 0);
-            setRows(
-                (initial.products ?? [])
-                    .slice()
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((p) => ({
-                        productId: p.productId,
-                        quantity: p.quantity ?? 1,
-                    }))
-            );
-        } else {
-            setName("");
-            setRecipe("");
-            setImage("");
-            setType("");
-            setBasePrice(0);
-            setMinPrice(0);
-            setMaxPrice(0);
-            setRows([{ productId: "", quantity: 1 }]);
-        }
-    }, [open, mode, initial]);
+    const base = Number(basePrice);
+    const min = Number(minPrice);
+    const max = Number(maxPrice);
+    const pricesFilled = basePrice !== "" && minPrice !== "" && maxPrice !== "";
+    const pricesPositive = base > 0 && min > 0 && max > 0;
+    const priceRangeValid = min <= base && base <= max;
+    const priceError = !pricesFilled
+        ? null
+        : !pricesPositive
+            ? "Prices must be greater than 0"
+            : !priceRangeValid
+                ? "Required: min ≤ base ≤ max"
+                : null;
 
-    const canSave = useMemo(() => {
-        const validBase = !loading && name.trim().length > 0 && String(type).trim().length > 0;
-        const validRows =
-            rows.length > 0 &&
-            rows.every((r) => r.productId !== "" && Number(r.quantity) > 0);
-        const validPrices =
-            basePrice > 0 &&
-            minPrice > 0 &&
-            maxPrice > 0;
-        return validBase && validRows && validPrices;
-    }, [loading, name, type, rows]);
+    const validRows =
+        rows.length > 0 && rows.every((r) => r.productId !== "" && parseQuantity(r.quantity) !== null);
+    const displayOrderValid = displayOrder.trim() === "" || /^\d+$/.test(displayOrder.trim());
+    const canSave =
+        !loading &&
+        name.trim().length > 0 &&
+        type !== "" &&
+        validRows &&
+        displayOrderValid &&
+        pricesFilled &&
+        priceError === null;
 
     function addRow() {
-        setRows((prev) => [...prev, { productId: "", quantity: 1 }]);
+        setRows((prev) => [...prev, { productId: "", quantity: "1" }]);
     }
 
     function removeRow(idx: number) {
@@ -110,19 +105,21 @@ export default function ItemDialog({
     }
 
     function handleSubmit() {
+        // canSave includes type !== "", which narrows type for TypeScript below
         if (!canSave) return;
 
         onSubmit({
             name: name.trim(),
             recipe: recipe.trim() ? recipe.trim() : null,
             image: image.trim() ? image.trim() : null,
-            type: String(type).trim(),
-            basePrice,
-            minPrice,
-            maxPrice,
+            type,
+            basePrice: base,
+            minPrice: min,
+            maxPrice: max,
+            displayOrder: displayOrder.trim() === "" ? null : Number(displayOrder),
             products: rows.map((r) => ({
                 productId: Number(r.productId),
-                quantity: Number(r.quantity),
+                quantity: parseQuantity(r.quantity) ?? 0,
             })),
         });
     }
@@ -169,6 +166,16 @@ export default function ItemDialog({
                             onChange={(e) => setImage(e.target.value)}
                             fullWidth
                         />
+                        <TextField
+                            label="Menu position"
+                            type="number"
+                            value={displayOrder}
+                            onChange={(e) => setDisplayOrder(e.target.value)}
+                            error={!displayOrderValid}
+                            helperText="Order on menus and TV; empty = after numbered items, by name"
+                            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                            sx={{ width: { xs: "100%", md: 220 }, flexShrink: 0 }}
+                        />
 
                     </Stack>
                     <TextField
@@ -189,17 +196,19 @@ export default function ItemDialog({
                                 label="Base price"
                                 type="number"
                                 value={basePrice}
-                                onChange={(e) => setBasePrice(Number(e.target.value))}
+                                onChange={(e) => setBasePrice(e.target.value)}
                                 fullWidth
                                 required
-                                helperText="min ≤ base ≤ max"
+                                error={priceError !== null}
+                                helperText={priceError ?? "min ≤ base ≤ max"}
                             />
 
                             <TextField
                                 label="Min price"
                                 type="number"
                                 value={minPrice}
-                                onChange={(e) => setMinPrice(Number(e.target.value))}
+                                onChange={(e) => setMinPrice(e.target.value)}
+                                error={priceError !== null}
                                 fullWidth
                                 required
                             />
@@ -208,7 +217,8 @@ export default function ItemDialog({
                                 label="Max price"
                                 type="number"
                                 value={maxPrice}
-                                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                                onChange={(e) => setMaxPrice(e.target.value)}
+                                error={priceError !== null}
                                 fullWidth
                                 required
                             />
@@ -236,8 +246,13 @@ export default function ItemDialog({
                                     onChange={(e) => updateRow(idx, { productId: Number(e.target.value) })}
                                 >
                                     {products.map((p) => (
-                                        <MenuItem key={p.productId} value={p.productId}>
-                                            {p.name} (#{p.productId})
+                                        <MenuItem
+                                            key={p.productId}
+                                            value={p.productId}
+                                            // one recipe line per product: adjust the quantity instead
+                                            disabled={rows.some((other, i) => i !== idx && other.productId === p.productId)}
+                                        >
+                                            {p.name} (#{p.productId}) · {UNIT_LABEL[p.unit] ?? p.unit}
                                         </MenuItem>
                                     ))}
                                 </TextField>
@@ -246,7 +261,9 @@ export default function ItemDialog({
                                     <IconButton
                                         size="small"
                                         onClick={() =>
-                                            updateRow(idx, { quantity: Math.max(1, r.quantity - 1) })
+                                            updateRow(idx, {
+                                                quantity: formatQuantity(Math.max(1, addQuantity(parseQuantity(r.quantity) ?? 1, -1))),
+                                            })
                                         }
                                     >
                                         −
@@ -255,12 +272,11 @@ export default function ItemDialog({
                                     <TextField
                                         value={r.quantity}
                                         label="Quantity"
-                                        onChange={(e) =>
-                                            updateRow(idx, { quantity: Number(e.target.value) })
-                                        }
+                                        onChange={(e) => updateRow(idx, { quantity: e.target.value })}
+                                        error={parseQuantity(r.quantity) === null}
                                         size="small"
                                         sx={{
-                                            width: 70,
+                                            width: 90,
                                             "& input": {
                                                 textAlign: "center",
                                             },
@@ -270,7 +286,9 @@ export default function ItemDialog({
                                     <IconButton
                                         size="small"
                                         onClick={() =>
-                                            updateRow(idx, { quantity: r.quantity + 1 })
+                                            updateRow(idx, {
+                                                quantity: formatQuantity(addQuantity(parseQuantity(r.quantity) ?? 0, 1)),
+                                            })
                                         }
                                     >
                                         +

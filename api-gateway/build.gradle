@@ -22,6 +22,9 @@ dependencies {
 
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    // native DNS resolver for Netty on macOS dev machines (otherwise an ERROR is logged on start); unused on Linux
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-x86_64'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

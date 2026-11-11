@@ -193,9 +193,44 @@
 
 ### Передумови
 - Docker + Docker Compose
-- JDK 21
+- JDK 21, Node 24 (для admin UI)
 
-### Запуск
+### Профілі
+- `local` — сервіси запущені на хості (IDE / `java -jar`), інфраструктура в Docker. Вмикається сам, якщо профіль не задано.
+- `prod` — сервіси в контейнерах (`SPRING_PROFILES_ACTIVE=prod`), адреси — імена контейнерів.
 
-docker compose up -d
-npm run dev
+### Запуск: усе в Docker (dev-стек з debug-портами і Kafka UI)
+
+```bash
+./gradlew bootJar
+docker compose up -d --build
+cd admin-ui && npm run dev
+```
+
+### Запуск: сервіси з IDE (профіль `local`)
+
+```bash
+docker compose up -d postgres zookeeper kafka kafka-ui eureka-server
+```
+
+Далі запустити з IDE `inventory-service`, `pricing-service`, `price-streaming-service`, `api-gateway` (без профілю), і `npm run dev` в `admin-ui`.
+
+### Запуск: production-подібний стек
+
+```bash
+cp .env.example .env   # задати паролі
+./gradlew bootJar
+docker compose -f docker-compose-prod.yml up -d --build
+```
+
+Назовні лише gateway (`:8765`) і admin UI (`:8080`, nginx); БД і Kafka не опубліковані.
+
+### Адреси
+| Що | Адреса |
+|---|---|
+| Admin UI | http://localhost:5173 (dev), http://localhost:8080 (prod) |
+| API Gateway | http://localhost:8765 |
+| TV-екран закладу | http://localhost:8765/tv.html?venue=default |
+| Eureka | http://localhost:8761 (dev) |
+| Kafka UI | http://localhost:8085 (dev) |
+| Swagger Inventory | http://localhost:8081/swagger-ui.html (dev) |

@@ -69,10 +69,31 @@ public class BrandController {
         return ResponseEntity.ok(brandService.getBrandById(id));
     }
 
+    @Operation(summary = "Rename brand by id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Brand renamed"),
+            @ApiResponse(responseCode = "400", description = "Validation error",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Brand not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Brand with this name already exists",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BrandResponseDto> updateBrand(
+            @Parameter(description = "Brand id", example = "1")
+            @PathVariable @Positive Long id,
+            @RequestBody @Valid BrandRequestDto requestDto
+    ) {
+        return ResponseEntity.ok(brandService.updateBrand(id, requestDto));
+    }
+
     @Operation(summary = "Delete brand by id")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Brand deleted"),
             @ApiResponse(responseCode = "404", description = "Brand not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Brand still has products",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
     @DeleteMapping("/{id}")

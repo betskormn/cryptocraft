@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 
 export type SortDir = "asc" | "desc";
 
@@ -53,10 +53,10 @@ export function useTableQuery<T, K extends string>(rows: T[], opts: Options<T, K
         initialSort,
     } = opts;
 
-    const [search, setSearch] = useState(initialSearch);
+    const [search, setSearchState] = useState(initialSearch);
     const deferredSearch = useDeferredValue(search);
 
-    const [sort, setSort] = useState<SortState<K>>(initialSort);
+    const [sort, setSortState] = useState<SortState<K>>(initialSort);
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(initialRowsPerPage);
@@ -74,24 +74,29 @@ export function useTableQuery<T, K extends string>(rows: T[], opts: Options<T, K
         return stableSort(filtered, (a, b) => dirMul * compareValues(getter(a), getter(b)));
     }, [filtered, sort, sortKeys]);
 
-    // reset page when search or sort changes
-    useEffect(() => {
+    // a new search or sort starts from the first page
+    function setSearch(value: string) {
+        setSearchState(value);
         setPage(0);
-    }, [deferredSearch, sort.key, sort.dir]);
+    }
 
-    // keep page in range if count changes
-    useEffect(() => {
-        const maxPage = Math.max(0, Math.ceil(sorted.length / rowsPerPage) - 1);
-        setPage((p) => Math.min(p, maxPage));
-    }, [sorted.length, rowsPerPage]);
+    function setSort(value: SortState<K>) {
+        setSortState(value);
+        setPage(0);
+    }
+
+    // keep the page in range when rows disappear (delete, filter, smaller page size)
+    const maxPage = Math.max(0, Math.ceil(sorted.length / rowsPerPage) - 1);
+    const safePage = Math.min(page, maxPage);
 
     const paged = useMemo(() => {
-        const start = page * rowsPerPage;
+        const start = safePage * rowsPerPage;
         return sorted.slice(start, start + rowsPerPage);
-    }, [sorted, page, rowsPerPage]);
+    }, [sorted, safePage, rowsPerPage]);
 
     function toggleSort(key: K) {
-        setSort((prev) => {
+        setPage(0);
+        setSortState((prev) => {
             if (prev.key !== key) return { key, dir: "asc" };
             return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
         });
@@ -106,7 +111,7 @@ export function useTableQuery<T, K extends string>(rows: T[], opts: Options<T, K
         setSort,
         toggleSort,
 
-        page,
+        page: safePage,
         setPage,
         rowsPerPage,
         setRowsPerPage,

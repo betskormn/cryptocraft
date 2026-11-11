@@ -23,7 +23,7 @@ import {
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
-import AddCircleIcon from "@mui/icons-material/AddCircle";
+import ExposureIcon from "@mui/icons-material/Exposure";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
@@ -46,6 +46,7 @@ import AdjustStockDialog from "../../components/AdjustStockDialog";
 
 import { includes, norm } from "../../utils/text";
 import { useTableQuery } from "../../hooks/useTableQuery";
+import { addQuantity, formatQuantity } from "../../utils/quantity";
 
 type SortKey = "id" | "name" | "stock" | "unit" | "brand";
 
@@ -57,12 +58,14 @@ export default function ProductListPage() {
     const [selected, setSelected] = useState<ProductResponseDto | null>(null);
     const [errorText, setErrorText] = useState<string | null>(null);
 
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<ProductResponseDto | null>(null);
 
-    // add stock dialog
+    // adjust stock dialog (delivery or write-off)
     const [addOpen, setAddOpen] = useState(false);
     const [addTarget, setAddTarget] = useState<ProductResponseDto | null>(null);
+    const [stockError, setStockError] = useState<string | null>(null);
 
     // toast
     const [toastOpen, setToastOpen] = useState(false);
@@ -97,8 +100,10 @@ export default function ProductListPage() {
         onSuccess: async () => {
             setDeleteOpen(false);
             setDeleteTarget(null);
+            setDeleteError(null);
             await qc.invalidateQueries({ queryKey: ["products"] });
         },
+        onError: (e) => setDeleteError(getApiErrorMessage(e, "Failed to delete product")),
     });
 
     // atomic PATCH: /products/{id}/stock { delta }
@@ -115,7 +120,7 @@ export default function ProductListPage() {
                 qc.setQueryData<ProductResponseDto[]>(["products"], (old) =>
                     (old ?? []).map((p) =>
                         p.productId === productId
-                            ? { ...p, quantityInStock: (p.quantityInStock ?? 0) + delta }
+                            ? { ...p, quantityInStock: addQuantity(p.quantityInStock ?? 0, delta) }
                             : p
                     )
                 );
@@ -123,16 +128,20 @@ export default function ProductListPage() {
             return { prev };
         },
 
-        onError: (_err, _vars, ctx) => {
+        onError: (err, _vars, ctx) => {
             if (ctx?.prev) qc.setQueryData(["products"], ctx.prev);
+            setStockError(getApiErrorMessage(err, "Failed to change stock"));
         },
 
         onSuccess: async (updated, vars) => {
             setAddOpen(false);
             setAddTarget(null);
+            setStockError(null);
 
             setToastText(
-                `Stock increased: ${updated.name} +${vars.delta} (new: ${updated.quantityInStock})`
+                vars.delta > 0
+                    ? `Stock increased: ${updated.name} +${formatQuantity(vars.delta)} (new: ${formatQuantity(updated.quantityInStock)})`
+                    : `Written off: ${updated.name} ${formatQuantity(vars.delta)} (new: ${formatQuantity(updated.quantityInStock)})`
             );
             setToastOpen(true);
 
@@ -303,7 +312,7 @@ export default function ProductListPage() {
                             <TableRow key={p.productId} hover>
                                 <TableCell>{p.productId}</TableCell>
                                 <TableCell>{p.name}</TableCell>
-                                <TableCell>{p.quantityInStock}</TableCell>
+                                <TableCell>{formatQuantity(p.quantityInStock)}</TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>
                                     {UNIT_LABEL[p.unit] ?? p.unit}
                                 </TableCell>
@@ -313,12 +322,13 @@ export default function ProductListPage() {
 
                                 <TableCell align="right">
                                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
-                                        <Tooltip title="Add stock">
+                                        <Tooltip title="Adjust stock">
                       <span>
                         <IconButton
                             size="small"
                             disabled={addStockMut.isPending}
                             onClick={() => {
+                                setStockError(null);
                                 setAddTarget(p);
                                 setAddOpen(true);
                             }}
@@ -330,7 +340,7 @@ export default function ProductListPage() {
                                 boxShadow: "0 8px 18px rgba(0,0,0,0.35)",
                             }}
                         >
-                          <AddCircleIcon fontSize="small" />
+                          <ExposureIcon fontSize="small" />
                         </IconButton>
                       </span>
                                         </Tooltip>
@@ -361,6 +371,7 @@ export default function ProductListPage() {
                             size="small"
                             disabled={delMut.isPending}
                             onClick={() => {
+                                setDeleteError(null);
                                 setDeleteTarget(p);
                                 setDeleteOpen(true);
                             }}
@@ -403,41 +414,46 @@ export default function ProductListPage() {
                 />
             </Paper>
 
-            <ProductDialog
-                open={createOpen}
-                mode="create"
-                loading={createMut.isPending}
-                errorText={errorText}
-                brands={brands}
-                onClose={() => {
-                    if (!createMut.isPending) setCreateOpen(false);
-                }}
-                onSubmit={(dto) => createMut.mutate(dto)}
-            />
+            {createOpen && (
+                <ProductDialog
+                    open
+                    mode="create"
+                    loading={createMut.isPending}
+                    errorText={errorText}
+                    brands={brands}
+                    onClose={() => {
+                        if (!createMut.isPending) setCreateOpen(false);
+                    }}
+                    onSubmit={(dto) => createMut.mutate(dto)}
+                />
+            )}
 
-            <ProductDialog
-                open={editOpen}
-                mode="edit"
-                loading={editMut.isPending}
-                errorText={errorText}
-                brands={brands}
-                initial={selected}
-                onClose={() => {
-                    if (!editMut.isPending) {
-                        setEditOpen(false);
-                        setSelected(null);
-                    }
-                }}
-                onSubmit={(dto) => {
-                    if (!selected) return;
-                    editMut.mutate({ id: selected.productId, dto });
-                }}
-            />
+            {editOpen && selected && (
+                <ProductDialog
+                    open
+                    mode="edit"
+                    loading={editMut.isPending}
+                    errorText={errorText}
+                    brands={brands}
+                    initial={selected}
+                    onClose={() => {
+                        if (!editMut.isPending) {
+                            setEditOpen(false);
+                            setSelected(null);
+                        }
+                    }}
+                    onSubmit={(dto) => {
+                        if (!selected) return;
+                        editMut.mutate({ id: selected.productId, dto });
+                    }}
+                />
+            )}
 
             <ConfirmDialog
                 open={deleteOpen}
                 title={`Delete product "${deleteTarget?.name ?? ""}"?`}
                 loading={delMut.isPending}
+                errorText={deleteError}
                 onCancel={() => {
                     if (!delMut.isPending) {
                         setDeleteOpen(false);
@@ -449,22 +465,22 @@ export default function ProductListPage() {
                 }}
             />
 
-            <AdjustStockDialog
-                open={addOpen}
-                productName={addTarget?.name ?? ""}
-                currentStock={addTarget?.quantityInStock ?? 0}
-                loading={addStockMut.isPending}
-                onClose={() => {
-                    if (!addStockMut.isPending) {
-                        setAddOpen(false);
-                        setAddTarget(null);
-                    }
-                }}
-                onSubmit={(delta) => {
-                    if (!addTarget) return;
-                    addStockMut.mutate({ productId: addTarget.productId, delta });
-                }}
-            />
+            {addOpen && addTarget && (
+                <AdjustStockDialog
+                    open
+                    productName={addTarget.name}
+                    currentStock={addTarget.quantityInStock}
+                    loading={addStockMut.isPending}
+                    errorText={stockError}
+                    onClose={() => {
+                        if (!addStockMut.isPending) {
+                            setAddOpen(false);
+                            setAddTarget(null);
+                        }
+                    }}
+                    onSubmit={(delta) => addStockMut.mutate({ productId: addTarget.productId, delta })}
+                />
+            )}
 
             <Snackbar
                 open={toastOpen}

@@ -33,6 +33,7 @@ export type ProductResponseDto = {
     name: string;
     description: string;
     image?: string | null;
+    // in the product's unit, up to 3 decimals
     quantityInStock: number;
     unit: Unit;
     brandId: number;
@@ -47,7 +48,7 @@ export type ProductRequestDto = {
     brandId: number;
 };
 
-//  for Variant B (atomic delta)
+// positive delta adds a delivery, negative writes stock off (never below zero)
 export type AdjustStockRequestDto = {
     delta: number;
 };
@@ -71,10 +72,7 @@ export async function deleteProduct(id: number): Promise<void> {
     await http.delete(`/api/v1/products/${id}`);
 }
 
-/**
- * Variant B: atomic stock increment
- * Backend should implement PATCH /api/v1/products/{id}/stock with { delta }
- */
+// atomic: PATCH /api/v1/products/{id}/stock with { delta }
 export async function adjustProductStock(id: number, delta: number): Promise<ProductResponseDto> {
     const res = await http.patch<ProductResponseDto>(`/api/v1/products/${id}/stock`, { delta });
     return res.data;

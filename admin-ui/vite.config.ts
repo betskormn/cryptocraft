@@ -11,10 +11,20 @@ export default defineConfig(({ mode }) => {
       host: true,
       port: 5173,
       strictPort: true,
+      // same paths as nginx in the production image: API, TV page and price sockets go to the gateway
       proxy: {
         "/api": {
           target,
           changeOrigin: true,
+        },
+        "/tv.html": {
+          target,
+          changeOrigin: true,
+        },
+        "/ws": {
+          target,
+          changeOrigin: true,
+          ws: true,
         },
       },
     },

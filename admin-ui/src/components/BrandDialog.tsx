@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Alert,
     Button,
@@ -9,33 +9,34 @@ import {
     TextField,
 } from "@mui/material";
 
+// mounted only while open, so every opening starts from initialName
 type Props = {
     open: boolean;
+    mode: "create" | "edit";
+    initialName?: string;
     loading?: boolean;
     errorText?: string | null;
     onClose: () => void;
     onSubmit: (name: string) => void;
 };
 
-export default function BrandCreateDialog({
-                                              open,
-                                              loading = false,
-                                              errorText = null,
-                                              onClose,
-                                              onSubmit,
-                                          }: Props) {
-    const [name, setName] = useState("");
-
-    useEffect(() => {
-        if (open) setName("");
-    }, [open]);
+export default function BrandDialog({
+                                        open,
+                                        mode,
+                                        initialName = "",
+                                        loading = false,
+                                        errorText = null,
+                                        onClose,
+                                        onSubmit,
+                                    }: Props) {
+    const [name, setName] = useState(initialName);
 
     const trimmed = name.trim();
-    const canSave = trimmed.length > 0 && !loading;
+    const canSave = trimmed.length > 0 && trimmed !== initialName.trim() && !loading;
 
     return (
         <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
-            <DialogTitle>Create brand</DialogTitle>
+            <DialogTitle>{mode === "create" ? "Create brand" : "Rename brand"}</DialogTitle>
 
             <DialogContent>
                 {errorText ? (

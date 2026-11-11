@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import {
     Alert,
     Button,
@@ -15,7 +15,9 @@ import {
 
 import type { BrandResponseDto } from "../api/brands.api";
 import { UNIT_OPTIONS, UNIT_LABEL, type Unit, type ProductRequestDto, type ProductResponseDto } from "../api/products.api";
+import { addQuantity, formatQuantity, parseQuantity } from "../utils/quantity";
 
+// mounted only while open (see ProductListPage), so the form starts from `initial` on every opening
 type Props = {
     open: boolean;
     mode: "create" | "edit";
@@ -37,43 +39,24 @@ export default function ProductDialog({
                                           onClose,
                                           onSubmit,
                                       }: Props) {
-    const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
-    const [image, setImage] = useState("");
-    const [quantity, setQuantity] = useState<number>(0);
-    const [unit, setUnit] = useState<Unit>("MILLILITERS");
-    const [brandId, setBrandId] = useState<number | "">("");
+    const editing = mode === "edit" && initial ? initial : null;
 
-    useEffect(() => {
-        if (!open) return;
+    const [name, setName] = useState(editing?.name ?? "");
+    const [description, setDescription] = useState(editing?.description ?? "");
+    const [image, setImage] = useState(editing?.image ?? "");
+    // initial stock on create only; afterwards stock changes through Add stock / Write off
+    // text so decimals like "1.5" can be typed
+    const [quantity, setQuantity] = useState(formatQuantity(editing?.quantityInStock ?? 0));
+    const [unit, setUnit] = useState<Unit>(editing?.unit ?? "MILLILITERS");
+    const [brandId, setBrandId] = useState<number | "">(editing?.brandId ?? brands[0]?.brandId ?? "");
 
-        if (mode === "edit" && initial) {
-            setName(initial.name ?? "");
-            setDescription(initial.description ?? "");
-            setImage(initial.image ?? "");
-            setQuantity(initial.quantityInStock ?? 0); // response -> request mapping
-            setUnit((initial.unit ?? "MILLILITERS") as Unit);
-            setBrandId(initial.brandId ?? "");
-        } else {
-            setName("");
-            setDescription("");
-            setImage("");
-            setQuantity(0);
-            setUnit("MILLILITERS");
-            setBrandId(brands[0]?.brandId ?? "");
-        }
-    }, [open, mode, initial, brands]);
-
-    const canSave = useMemo(() => {
-        return (
-            !loading &&
-            name.trim().length > 0 &&
-            description.trim().length > 0 &&
-            quantity >= 0 &&
-            unit.length > 0 &&
-            brandId !== ""
-        );
-    }, [loading, name, description, quantity, unit, brandId]);
+    const canSave =
+        !loading &&
+        name.trim().length > 0 &&
+        description.trim().length > 0 &&
+        parseQuantity(quantity, { allowZero: true }) !== null &&
+        unit.length > 0 &&
+        brandId !== "";
 
     function handleSubmit() {
         if (!canSave) return;
@@ -82,7 +65,7 @@ export default function ProductDialog({
             name: name.trim(),
             description: description.trim(),
             image: image.trim() ? image.trim() : null,
-            quantity: Number(quantity),
+            quantity: parseQuantity(quantity, { allowZero: true }) ?? 0,
             unit,
             brandId: Number(brandId),
         });
@@ -100,7 +83,7 @@ export default function ProductDialog({
                 ) : null}
 
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <TextField
                             label="Name"
                             value={name}
@@ -111,19 +94,25 @@ export default function ProductDialog({
                         />
                     </Grid>
 
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                             <IconButton
                                 size="small"
-                                onClick={() => setQuantity((q) => Math.max(0, q - 1))}
+                                disabled={editing !== null}
+                                onClick={() =>
+                                    setQuantity((q) => formatQuantity(Math.max(0, addQuantity(parseQuantity(q, { allowZero: true }) ?? 0, -1))))
+                                }
                             >
                                 −
                             </IconButton>
 
                             <TextField
                                 value={quantity}
-                                label="Quantity"
-                                onChange={(e) => setQuantity(Number(e.target.value))}
+                                label={editing ? "Stock" : "Initial stock"}
+                                title={editing ? "Use Add stock / Write off in the product list" : undefined}
+                                disabled={editing !== null}
+                                onChange={(e) => setQuantity(e.target.value)}
+                                error={parseQuantity(quantity, { allowZero: true }) === null}
                                 size="small"
                                 sx={{
                                     width: 80,
@@ -134,14 +123,17 @@ export default function ProductDialog({
                             />
                             <IconButton
                                 size="small"
-                                onClick={() => setQuantity((q) => q + 1)}
+                                disabled={editing !== null}
+                                onClick={() =>
+                                    setQuantity((q) => formatQuantity(addQuantity(parseQuantity(q, { allowZero: true }) ?? 0, 1)))
+                                }
                             >
                                 +
                             </IconButton>
                         </Stack>
                     </Grid>
 
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <TextField
                             label="Unit"
                             select
@@ -158,7 +150,7 @@ export default function ProductDialog({
                         </TextField>
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <TextField
                             label="Brand"
                             select
@@ -175,7 +167,7 @@ export default function ProductDialog({
                         </TextField>
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <TextField
                             label="Image URL"
                             value={image}
@@ -184,7 +176,7 @@ export default function ProductDialog({
                         />
                     </Grid>
 
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                         <TextField
                             label="Description"
                             value={description}

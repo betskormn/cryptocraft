@@ -29,17 +29,17 @@ SET base_price = x.base_price,
     max_price  = x.max_price
 FROM (
          VALUES
-             ('Віскі-кола', 120, 80, 180),
-             ('Джин-тонік', 130, 90, 200),
-             ('Куба Лібрe', 140, 90, 210),
-             ('Олд фешн (спрощено)', 160, 110, 240),
-             ('Негроні (спрощено)', 170, 120, 260),
-             ('Горілка-тонік', 120, 80, 180),
-             ('Еспресо', 50, 30, 80),
-             ('Мартіні з оливками', 180, 130, 260),
-             ('Мохіто (спрощено)', 150, 100, 220),
-             ('Лимонад (домашній)', 90, 60, 140),
-             ('Джинджер-хайбол', 140, 90, 210)
+             ('Whiskey-Cola', 120, 80, 180),
+             ('Gin and Tonic', 130, 90, 200),
+             ('Cuba Libre', 140, 90, 210),
+             ('Old Fashioned', 160, 110, 240),
+             ('Negroni', 170, 120, 260),
+             ('Vodka Tonic', 120, 80, 180),
+             ('Espresso', 50, 30, 80),
+             ('Martini with Olives', 180, 130, 260),
+             ('Mojito', 150, 100, 220),
+             ('Homemade Lemonade', 90, 60, 140),
+             ('Ginger Highball', 140, 90, 210)
      ) AS x(name, base_price, min_price, max_price)
          JOIN t ON true
 WHERE i.name = x.name
@@ -58,12 +58,12 @@ SET base_price = x.base_price,
     max_price  = x.max_price
 FROM (
          VALUES
-             ('Класичний чізбургер', 180, 140, 260),
-             ('Бургер BBQ з беконом', 200, 150, 300),
-             ('Курячий рол у тортильї', 160, 120, 240),
-             ('Картопля фрі', 90, 60, 140),
-             ('Піца Маргарита', 220, 170, 320),
-             ('Спагеті Помодоро', 180, 140, 260)
+             ('Classic Cheeseburger', 180, 140, 260),
+             ('BBQ Bacon Burger', 200, 150, 300),
+             ('Chicken Tortilla Wrap', 160, 120, 240),
+             ('French Fries', 90, 60, 140),
+             ('Pizza Margherita', 220, 170, 320),
+             ('Spaghetti Pomodoro', 180, 140, 260)
      ) AS x(name, base_price, min_price, max_price)
          JOIN t ON true
 WHERE i.name = x.name

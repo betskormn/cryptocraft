@@ -1,58 +1,13 @@
+# inside the compose network; addresses can be overridden with environment variables
 spring:
-#  for dev
-  devtools:
-    restart:
-      enabled: true
-      poll-interval: 2s
-      quiet-period: 1s
-  docker:
-    compose:
-      lifecycle-management: none
-
   datasource:
-    url: jdbc:postgresql://postgres:5432/postgres
-    # non-superuser role, so PostgreSQL RLS applies; migrations run as postgres below
-    username: ${APP_DB_USER:cryptocraft_app}
-    password: ${APP_DB_PASSWORD:cryptocraft_app}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 1
-      pool-name: inventory-hikari
-      auto-commit: false
-
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
-        jdbc:
-          time_zone: UTC
-
-  liquibase:
-    enabled: true
-    change-log: classpath:db/changelog/db.changelog-master.yaml
-    url: jdbc:postgresql://postgres:5432/postgres
-    user: postgres
-    password: mysecretpassword
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/postgres}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
 
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka
+      defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka}
   instance:
     prefer-ip-address: true
-    instance-id: ${spring.application.name}:${server.port}
-    non-secure-port: 8081
-
-server:
-  port: 8081
-
-logging:
-  level:
-    root: INFO
-    liquibase: DEBUG
-    org.springframework.boot.autoconfigure.liquibase: DEBUG

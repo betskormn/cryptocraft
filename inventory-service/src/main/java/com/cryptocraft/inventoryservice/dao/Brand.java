@@ -43,8 +43,8 @@ public class Brand extends AuditingEntity implements HasTenant, Serializable {
     @OneToMany(
             mappedBy = "brand",
             fetch = FetchType.LAZY,
-            cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE},
-            orphanRemoval = true
+            // no REMOVE/orphanRemoval: deleting a brand must never delete its products (see BrandServiceImpl)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE}
     )
     @Builder.Default
     private List<Product> products = new ArrayList<>();

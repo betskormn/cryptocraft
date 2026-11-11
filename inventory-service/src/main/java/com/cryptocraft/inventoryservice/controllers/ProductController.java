@@ -70,7 +70,8 @@ public class ProductController {
         return ResponseEntity.ok(productService.getProductById(id));
     }
 
-    @Operation(summary = "Update product by id", description = "Full update (PUT) of product data")
+    @Operation(summary = "Update product by id",
+            description = "Full update (PUT) of product data; quantity is ignored, stock changes only via PATCH /stock")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product updated"),
             @ApiResponse(responseCode = "400", description = "Validation error",
@@ -91,6 +92,8 @@ public class ProductController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Product deleted"),
             @ApiResponse(responseCode = "404", description = "Product not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Product is used in item recipes",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
     @DeleteMapping("/{id}")
@@ -103,12 +106,15 @@ public class ProductController {
     }
 
 
-    @Operation(summary = "Adjust product stock", description = "Atomically adds delta to product stock")
+    @Operation(summary = "Adjust product stock",
+            description = "Atomically adds delta to product stock; negative delta writes stock off, never below zero")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Stock updated"),
             @ApiResponse(responseCode = "400", description = "Validation error",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Product not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Stock would go below zero",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
     @PatchMapping(value = "/{id}/stock", consumes = MediaType.APPLICATION_JSON_VALUE)

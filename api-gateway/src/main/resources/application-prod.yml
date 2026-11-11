@@ -1,4 +1,7 @@
+# inside the compose network; addresses can be overridden with environment variables
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka
+      defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka}
+  instance:
+    prefer-ip-address: true

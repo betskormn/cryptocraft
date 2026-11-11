@@ -12,6 +12,8 @@ public record ItemResponseDto(
         BigDecimal basePrice,
         BigDecimal minPrice,
         BigDecimal maxPrice,
+        Integer displayOrder,
+        boolean stopped,
         List<ItemProductResponseDto> products
 ) {
     public ItemResponseDto {

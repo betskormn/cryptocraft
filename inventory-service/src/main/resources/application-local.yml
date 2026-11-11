@@ -1,33 +1,16 @@
+# everything runs on this machine; infrastructure from docker compose (see README)
 spring:
-  devtools:
-    restart:
-      enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
-    # non-superuser role, so PostgreSQL RLS applies; migrations run as postgres below
-    username: ${APP_DB_USER:cryptocraft_app}
-    password: ${APP_DB_PASSWORD:cryptocraft_app}
-  liquibase:
-    user: postgres
-    password: mysecretpassword
   jpa:
     show-sql: true
-
-liquibase:
-  activities:
-    main:
-      url: jdbc:postgresql://localhost:5432/postgres
-      username: postgres
-      password: mysecretpassword
+  kafka:
+    bootstrap-servers: localhost:9092
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka
   instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${server.port}
-    non-secure-port: 8081
-
-server:
-  port: 8081
+    hostname: localhost
+    prefer-ip-address: false

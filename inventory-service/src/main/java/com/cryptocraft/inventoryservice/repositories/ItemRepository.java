@@ -1,10 +1,13 @@
 package com.cryptocraft.inventoryservice.repositories;
 
 import com.cryptocraft.inventoryservice.dao.Item;
+import com.cryptocraft.inventoryservice.repositories.projections.RecipeLine;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,5 +31,13 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
            left join fetch l.product p
            """)
     List<Item> findAllWithProducts();
+
+    @Query("""
+           select new com.cryptocraft.inventoryservice.repositories.projections.RecipeLine(
+               l.item.itemId, l.product.productId, l.quantity)
+           from ItemProduct l
+           where l.item.itemId in :itemIds
+           """)
+    List<RecipeLine> findRecipeLines(@Param("itemIds") Collection<Long> itemIds);
 
 }

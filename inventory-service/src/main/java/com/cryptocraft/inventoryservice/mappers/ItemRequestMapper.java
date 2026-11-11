@@ -12,6 +12,7 @@ public interface ItemRequestMapper {
     @Mapping(target = "itemId", ignore = true)
     @Mapping(target = "productLinks", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
+    @Mapping(target = "stopped", ignore = true)
     Item toEntity(ItemRequestDto dto);
 
     @Mapping(target = "productLinks", ignore = true)
@@ -19,5 +20,7 @@ public interface ItemRequestMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
+    // the stop-list has its own endpoint, a full update keeps it as is
+    @Mapping(target = "stopped", ignore = true)
     void updateEntity(ItemRequestDto dto, @MappingTarget Item entity);
 }

@@ -1,10 +1,22 @@
 spring:
   application:
     name: inventory-service
+  profiles:
+    # IDE / bootRun without flags; containers set SPRING_PROFILES_ACTIVE=prod
+    default: local
+  datasource:
+    # the service connects as a non-superuser role so PostgreSQL RLS applies (005-tenant-isolation.sql)
+    username: ${APP_DB_USER:cryptocraft_app}
+    password: ${APP_DB_PASSWORD:cryptocraft_app}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      pool-name: inventory-hikari
+      auto-commit: false
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
@@ -12,21 +24,46 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
-
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
+    # migrations run as the database owner (creates the application role); the url must be explicit:
+    # Boot cannot derive it from the tenant-aware DataSource wrapper
+    url: ${spring.datasource.url}
+    user: ${DB_ADMIN_USER:postgres}
+    password: ${DB_ADMIN_PASSWORD:mysecretpassword}
     # role the service itself connects as; created by 005-tenant-isolation.sql
     parameters:
       app_db_user: ${APP_DB_USER:cryptocraft_app}
       app_db_password: ${APP_DB_PASSWORD:cryptocraft_app}
+  kafka:
+    producer:
+      # item change events (ItemConfigPublisher); do not hold a request long if Kafka is down,
+      # Pricing's periodic refresh picks the change up anyway
+      properties:
+        max.block.ms: 5000
+  docker:
+    compose:
+      # infrastructure is started explicitly (see README); Boot's compose support would also
+      # swap the datasource for the postgres superuser and bypass RLS
+      enabled: false
 
 eureka:
+  client:
+    registry-fetch-interval-seconds: 5
   instance:
-    instance-id: ${spring.application.name}:${random.uuid}
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
 
 server:
-  port: 0
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 logging:
   level:

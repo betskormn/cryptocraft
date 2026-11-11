@@ -1,25 +1,43 @@
 spring:
   application:
     name: pricing-service
+  profiles:
+    # IDE / bootRun without flags; containers set SPRING_PROFILES_ACTIVE=prod
+    default: local
   kafka:
-    bootstrap-servers: kafka:9092
+    consumer:
+      # item changes from Inventory; only new ones matter, the periodic refresh covers the rest
+      group-id: pricing-service
+      auto-offset-reset: latest
     producer:
       acks: all
       enable-idempotence: true
       retries: 3
+  docker:
+    compose:
+      # infrastructure is started explicitly (see README)
+      enabled: false
+
 eureka:
-  instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${random.uuid}
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka
+    registry-fetch-interval-seconds: 5
+  instance:
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 logging:
   level:
     org.apache.kafka: INFO
-server:
-  port: 8082
 
 pricing:
   # how often each venue's item configuration is re-read from Inventory

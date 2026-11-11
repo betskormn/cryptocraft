@@ -8,6 +8,7 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Objects;
 
 @Getter
@@ -30,7 +31,7 @@ public class ItemProduct implements HasTenant, Serializable {
     private ItemProductId id;
 
     @Column(name = "quantity", nullable = false)
-    private Integer quantity = 1;
+    private BigDecimal quantity = BigDecimal.ONE;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("itemId")
@@ -47,7 +48,7 @@ public class ItemProduct implements HasTenant, Serializable {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
-    public static ItemProduct of(Item item, Product product, int quantity) {
+    public static ItemProduct of(Item item, Product product, BigDecimal quantity) {
         ItemProduct link = new ItemProduct();
         link.setItem(item);
         link.setProduct(product);

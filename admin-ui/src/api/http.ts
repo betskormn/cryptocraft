@@ -10,8 +10,7 @@ export const http = axios.create({
 http.interceptors.request.use((config) => {
     const tenantId = getCurrentTenantId();
     if (tenantId) {
-        config.headers = config.headers ?? {};
-        (config.headers as any)["X-Tenant-Id"] = tenantId;
+        config.headers.set("X-Tenant-Id", tenantId);
     }
     return config;
 });

@@ -5,6 +5,7 @@ import com.cryptocraft.inventoryservice.controllers.dto.response.ProductResponse
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface ProductService {
@@ -19,5 +20,5 @@ public interface ProductService {
 
     void deleteProductById(Long id);
 
-    ProductResponseDto adjustStock(Long id, Integer delta);
+    ProductResponseDto adjustStock(Long id, BigDecimal delta);
 }

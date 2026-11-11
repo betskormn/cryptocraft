@@ -11,6 +11,8 @@ public record ItemPriceResponceDto(
         Integer priceTickSeconds,
         String name,
         Type type,
+        Integer displayOrder,
+        boolean stopped,
         BigDecimal basePrice,
         BigDecimal minPrice,
         BigDecimal maxPrice

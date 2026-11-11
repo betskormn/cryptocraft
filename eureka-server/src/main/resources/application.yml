@@ -3,15 +3,29 @@ server:
 
 spring:
   application:
-    name: eserver
+    name: eureka-server
+
 eureka:
   client:
+    # standalone registry: does not register with or fetch from another Eureka
     register-with-eureka: false
     fetch-registry: false
     service-url:
       defaultZone: http://localhost:8761/eureka
+  server:
+    # a handful of instances that restart often: drop dead ones quickly instead of keeping them
+    # (self-preservation is meant for large fleets losing network, not for redeploys)
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+    response-cache-update-interval-ms: 3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 logging:
   level:
-    netflix.eureka: OFF
-    netflix.discovery: OFF
+    com.netflix.eureka: WARN
+    com.netflix.discovery: WARN

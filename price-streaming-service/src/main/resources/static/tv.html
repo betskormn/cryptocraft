@@ -41,6 +41,25 @@
         .price {
             transition: all 0.3s ease;
         }
+
+        /* item on the stop-list: still shown, clearly not orderable */
+        .stopped {
+            opacity: 0.35;
+        }
+
+        .stop-badge {
+            display: none;
+            margin-left: 0.75rem;
+            padding: 0.1rem 0.5rem;
+            border: 1px solid #ff4d4d;
+            color: #ff4d4d;
+            font-size: 0.75rem;
+            vertical-align: middle;
+        }
+
+        .stopped .stop-badge {
+            display: inline-block;
+        }
     </style>
 </head>
 
@@ -88,7 +107,7 @@
              class="grid grid-cols-[2fr_1fr_1fr_2fr] gap-4 py-3 border-b border-gray-800 items-center text-center">
 
             <div class="text-lg uppercase tracking-wide text-gray-300">
-                ${escapeHtml(item.name)}
+                ${escapeHtml(item.name)}<span class="stop-badge">SOLD OUT</span>
             </div>
 
             <div id="price-${item.itemId}"
@@ -108,15 +127,26 @@
     `;
     }
 
-    // adds a row the first time an item appears, keeping each group sorted by name
-    function ensureRow(item) {
-        if (document.getElementById(`row-${item.itemId}`)) return;
+    // items with a display order first (ascending), then the rest by name
+    function byMenuOrder(a, b) {
+        return (Number(a.dataset.order) - Number(b.dataset.order)) || a.dataset.name.localeCompare(b.dataset.name);
+    }
 
+    // adds a row the first time an item appears and keeps its group in menu order and its stop-list state current
+    function ensureRow(item) {
         const group = document.getElementById(`group-${item.type}`) || document.getElementById("group-DRINK");
-        group.insertAdjacentHTML("beforeend", row(item));
-        [...group.children]
-            .sort((a, b) => a.dataset.name.localeCompare(b.dataset.name))
-            .forEach(el => group.appendChild(el));
+        let el = document.getElementById(`row-${item.itemId}`);
+        if (!el) {
+            group.insertAdjacentHTML("beforeend", row(item));
+            el = document.getElementById(`row-${item.itemId}`);
+        }
+
+        const order = String(item.displayOrder ?? Number.MAX_SAFE_INTEGER);
+        if (el.dataset.order !== order) {
+            el.dataset.order = order;
+            [...group.children].sort(byMenuOrder).forEach(child => group.appendChild(child));
+        }
+        el.classList.toggle("stopped", Boolean(item.stopped));
     }
 
 
@@ -128,6 +158,13 @@
         const price = data.price;
 
         ensureRow(data);
+
+        // stop-list: the price is frozen; show it plainly, no change arrow and no new candles
+        if (data.stopped) {
+            showFrozen(id, price);
+            prices[id] = price;
+            return;
+        }
 
         const old = prices[id];
         prices[id] = price;
@@ -142,6 +179,16 @@
         updateRow(id, price, old);
         drawCandles(id);
     };
+
+    function showFrozen(id, price) {
+        const priceEl = document.getElementById(`price-${id}`);
+        const deltaEl = document.getElementById(`delta-${id}`);
+
+        priceEl.innerText = price.toFixed(2);
+        priceEl.className = "price text-2xl font-bold tracking-wider";
+        deltaEl.className = "text-lg font-semibold tracking-wide";
+        deltaEl.innerText = "—";
+    }
 
     function updateRow(id, price, old) {
 

@@ -9,6 +9,7 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -44,7 +45,8 @@ public class Product extends AuditingEntity implements HasTenant, Serializable {
     private String image;
 
     @Column(name = "quantity_in_stock", nullable = false)
-    private int quantityInStock;
+    // in the product's unit, up to 3 decimals; never below zero (DB check)
+    private BigDecimal quantityInStock;
 
     @Column(name = "unit", nullable = false)
     @Convert(converter = UnitConverter.class)

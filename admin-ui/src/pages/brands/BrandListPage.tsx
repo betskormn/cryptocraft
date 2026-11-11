@@ -22,9 +22,11 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
-import { createBrand, deleteBrand, getAllBrands, type BrandResponseDto } from "../../api/brands.api";
-import BrandCreateDialog from "../../components/BrandCreateDialog";
+import { createBrand, deleteBrand, getAllBrands, updateBrand, type BrandResponseDto } from "../../api/brands.api";
+import { getApiErrorMessage } from "../../api/error";
+import BrandDialog from "../../components/BrandDialog";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { includes } from "../../utils/text";
 import { useTableQuery } from "../../hooks/useTableQuery";
@@ -34,27 +36,28 @@ type SortKey = "id" | "name";
 export default function BrandListPage() {
     const queryClient = useQueryClient();
 
-    const [createOpen, setCreateOpen] = useState(false);
-    const [createError, setCreateError] = useState<string | null>(null);
+    // null: closed; without brand: create; with brand: rename
+    const [dialog, setDialog] = useState<{ brand?: BrandResponseDto } | null>(null);
+    const [dialogError, setDialogError] = useState<string | null>(null);
 
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const brandsQuery = useQuery({
         queryKey: ["brands"],
         queryFn: getAllBrands,
     });
 
-    const createMutation = useMutation({
-        mutationFn: (name: string) => createBrand({ name }),
+    const saveMutation = useMutation({
+        mutationFn: ({ id, name }: { id?: number; name: string }) =>
+            id === undefined ? createBrand({ name }) : updateBrand(id, { name }),
         onSuccess: async () => {
-            setCreateOpen(false);
-            setCreateError(null);
+            setDialog(null);
+            setDialogError(null);
             await queryClient.invalidateQueries({ queryKey: ["brands"] });
         },
-        onError: () => {
-            setCreateError("Failed to create brand (maybe it already exists?)");
-        },
+        onError: (e) => setDialogError(getApiErrorMessage(e, "Failed to save brand")),
     });
 
     const deleteMutation = useMutation({
@@ -62,9 +65,16 @@ export default function BrandListPage() {
         onSuccess: async () => {
             setDeleteOpen(false);
             setDeleteTarget(null);
+            setDeleteError(null);
             await queryClient.invalidateQueries({ queryKey: ["brands"] });
         },
+        onError: (e) => setDeleteError(getApiErrorMessage(e, "Failed to delete brand")),
     });
+
+    function openDialog(brand?: BrandResponseDto) {
+        setDialogError(null);
+        setDialog({ brand });
+    }
 
     const brands = useMemo(
         () => (Array.isArray(brandsQuery.data) ? brandsQuery.data : []),
@@ -82,6 +92,7 @@ export default function BrandListPage() {
     });
 
     function openDeleteConfirm(id: number, name: string) {
+        setDeleteError(null);
         setDeleteTarget({ id, name });
         setDeleteOpen(true);
     }
@@ -118,7 +129,7 @@ export default function BrandListPage() {
                         }}
                     />
 
-                    <Button variant="contained" onClick={() => setCreateOpen(true)}>
+                    <Button variant="contained" onClick={() => openDialog()}>
                         Create brand
                     </Button>
                 </Stack>
@@ -161,6 +172,18 @@ export default function BrandListPage() {
                                 <TableCell>{b.name}</TableCell>
 
                                 <TableCell align="right">
+                                    <Tooltip title="Rename">
+                    <span>
+                      <IconButton
+                          size="small"
+                          disabled={saveMutation.isPending}
+                          onClick={() => openDialog(b)}
+                          sx={{ mr: 0.5, border: "1px solid rgba(255,255,255,0.18)", borderRadius: 2 }}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                                    </Tooltip>
                                     <Tooltip title="Delete">
                     <span>
                       <IconButton
@@ -205,22 +228,26 @@ export default function BrandListPage() {
                 />
             </Paper>
 
-            <BrandCreateDialog
-                open={createOpen}
-                loading={createMutation.isPending}
-                errorText={createError}
-                onClose={() => {
-                    setCreateOpen(false);
-                    setCreateError(null);
-                }}
-                onSubmit={(name) => createMutation.mutate(name)}
-            />
+            {dialog && (
+                <BrandDialog
+                    open
+                    mode={dialog.brand ? "edit" : "create"}
+                    initialName={dialog.brand?.name}
+                    loading={saveMutation.isPending}
+                    errorText={dialogError}
+                    onClose={() => {
+                        if (!saveMutation.isPending) setDialog(null);
+                    }}
+                    onSubmit={(name) => saveMutation.mutate({ id: dialog.brand?.brandId, name })}
+                />
+            )}
 
             <ConfirmDialog
                 open={deleteOpen}
                 title={`Delete brand "${deleteTarget?.name ?? ""}"?`}
-                description="This action cannot be undone."
+                description="This action cannot be undone. A brand that still has products cannot be deleted."
                 loading={deleteMutation.isPending}
+                errorText={deleteError}
                 onCancel={() => {
                     if (!deleteMutation.isPending) {
                         setDeleteOpen(false);

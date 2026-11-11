@@ -35,6 +35,9 @@ public record ItemRequestDto(
         @Positive(message = "maxPrice must be > 0")
         BigDecimal maxPrice,
 
+        @PositiveOrZero(message = "displayOrder must be >= 0")
+        Integer displayOrder,
+
         @NotEmpty(message = "Products must not be empty")
         List<@Valid ItemProductDto> products
 ) {
@@ -48,6 +51,7 @@ public record ItemRequestDto(
 
             @NotNull(message = "quantity must not be null")
             @Positive(message = "quantity must be > 0")
-            Integer quantity
+            @Digits(integer = 9, fraction = 3, message = "quantity may have at most 3 decimals")
+            BigDecimal quantity
     ) {}
 }

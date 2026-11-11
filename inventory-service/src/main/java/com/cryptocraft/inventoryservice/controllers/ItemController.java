@@ -1,7 +1,9 @@
 package com.cryptocraft.inventoryservice.controllers;
 
 import com.cryptocraft.inventoryservice.controllers.dto.request.ItemRequestDto;
+import com.cryptocraft.inventoryservice.controllers.dto.request.StopListRequestDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto;
+import com.cryptocraft.inventoryservice.controllers.dto.response.SellableItemResponseDto;
 import com.cryptocraft.inventoryservice.services.ItemService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -55,6 +57,17 @@ public class ItemController {
         return ResponseEntity.ok(itemService.getAllItems());
     }
 
+    @Operation(summary = "Get sellable items",
+            description = "Items in menu order with stop-list state and an estimate of portions left in stock; "
+                    + "the estimate is a warning only and never blocks an order")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Items in menu order")
+    })
+    @GetMapping("/sellable")
+    public ResponseEntity<List<SellableItemResponseDto>> getSellableItems() {
+        return ResponseEntity.ok(itemService.getSellableItems());
+    }
+
     @Operation(summary = "Get item by id")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Item found"),
@@ -84,6 +97,24 @@ public class ItemController {
             @RequestBody @Valid ItemRequestDto requestDto
     ) {
         return ResponseEntity.ok(itemService.updateItemById(id, requestDto));
+    }
+
+    @Operation(summary = "Put item on / take item off the stop-list",
+            description = "A stopped item stays on the menu but cannot be ordered")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Stop-list state changed"),
+            @ApiResponse(responseCode = "400", description = "Validation error",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Item not found",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @PatchMapping(value = "/{id}/stop-list", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ItemResponseDto> setStopped(
+            @Parameter(description = "Item id", example = "1")
+            @PathVariable @Positive Long id,
+            @RequestBody @Valid StopListRequestDto request
+    ) {
+        return ResponseEntity.ok(itemService.setStopped(id, request.stopped()));
     }
 
     @Operation(summary = "Delete item by id")

@@ -58,7 +58,7 @@ export default function AdminLayout() {
                         <ListItemButton
                             component={NavLink}
                             to="/brands"
-                            className={({ isActive }) => (isActive ? "active" : "")}
+                            // NavLink adds the "active" class styled below
                             sx={{
                                 borderRadius: 2,
                                 "&.active": {
@@ -76,7 +76,6 @@ export default function AdminLayout() {
                         <ListItemButton
                             component={NavLink}
                             to="/products"
-                            className={({ isActive }) => (isActive ? "active" : "")}
                             sx={{
                                 borderRadius: 2,
                                 "&.active": {
@@ -94,7 +93,6 @@ export default function AdminLayout() {
                         <ListItemButton
                             component={NavLink}
                             to="/items"
-                            className={({ isActive }) => (isActive ? "active" : "")}
                             sx={{
                                 borderRadius: 2,
                                 "&.active": {

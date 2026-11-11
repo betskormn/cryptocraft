@@ -9,6 +9,8 @@ public record ItemPriceDto(
         Integer priceTickSeconds,
         String name,
         String type,
+        Integer displayOrder,
+        boolean stopped,
         BigDecimal basePrice,
         BigDecimal minPrice,
         BigDecimal maxPrice

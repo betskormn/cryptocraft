@@ -13,5 +13,7 @@ public interface BrandService {
 
     BrandResponseDto getBrandById(Long id);
 
+    BrandResponseDto updateBrand(Long id, BrandRequestDto requestDto);
+
     void deleteBrand(Long id);
 }

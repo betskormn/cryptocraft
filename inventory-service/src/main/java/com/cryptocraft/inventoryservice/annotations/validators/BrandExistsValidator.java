@@ -7,7 +7,6 @@ import jakarta.validation.ConstraintValidatorContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.cryptocraft.inventoryservice.exceptions.ExceptionGlossary.ENTITY_NOT_FOUND;
 
 @Slf4j
 @Component

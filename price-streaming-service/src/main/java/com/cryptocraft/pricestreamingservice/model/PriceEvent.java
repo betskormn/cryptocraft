@@ -8,6 +8,8 @@ public record PriceEvent(
         Long itemId,
         String name,
         String type,
+        Integer displayOrder,
+        boolean stopped,
         BigDecimal price,
         long timestamp,
         long version

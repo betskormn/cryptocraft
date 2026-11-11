@@ -10,7 +10,8 @@ import { getCurrentTenantId, setCurrentTenantId } from "../tenant/currentTenant"
 import TenantCreateDialog from "./TenantCreateDialog";
 
 const TENANTS_KEY = ["platform-tenants"];
-const TV_BASE_URL = (import.meta.env.VITE_TV_BASE_URL as string | undefined) || "http://localhost:8083";
+// empty = same origin: Vite (dev) and nginx (prod) proxy /tv.html and /ws to the gateway
+const TV_BASE_URL = (import.meta.env.VITE_TV_BASE_URL as string | undefined) ?? "";
 
 export default function TenantSwitcher() {
     const queryClient = useQueryClient();

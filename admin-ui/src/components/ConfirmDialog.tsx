@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -14,6 +15,8 @@ type Props = {
   confirmText?: string;
   cancelText?: string;
   loading?: boolean;
+  // e.g. the server refusing to delete something still in use
+  errorText?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -25,6 +28,7 @@ export default function ConfirmDialog({
   confirmText = "Delete",
   cancelText = "Cancel",
   loading = false,
+  errorText = null,
   onCancel,
   onConfirm,
 }: Props) {
@@ -32,6 +36,11 @@ export default function ConfirmDialog({
     <Dialog open={open} onClose={loading ? undefined : onCancel}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
+        {errorText ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {errorText}
+          </Alert>
+        ) : null}
         <DialogContentText>{description}</DialogContentText>
       </DialogContent>
       <DialogActions>

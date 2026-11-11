@@ -8,4 +8,6 @@ import org.springframework.stereotype.Repository;
 public interface BrandRepository extends JpaRepository<Brand, Long> {
 
     boolean existsByNameIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCaseAndBrandIdNot(String name, Long brandId);
 }

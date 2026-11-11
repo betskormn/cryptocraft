@@ -1,14 +1,23 @@
 import type { AxiosError } from "axios";
 
-export function getApiErrorMessage(err: unknown, fallback = "Something went wrong") {
-    const e = err as AxiosError<any>;
-    const data = e?.response?.data;
+// inventory errors are RFC 9457 ProblemDetail ({ title, detail }); the gateway's own errors use { error }
+type ApiErrorBody = {
+    detail?: string;
+    title?: string;
+    message?: string;
+    error?: string;
+};
 
-    if (data?.detail) return String(data.detail);
-    if (data?.title) return String(data.title);
-    // inventory's GlobalErrorResponseDto
-    if (data?.description) return String(data.description);
-    if (typeof data === "string") return data;
+export function getApiErrorMessage(err: unknown, fallback = "Something went wrong") {
+    const data = (err as AxiosError<ApiErrorBody | string>)?.response?.data;
+
+    if (typeof data === "string" && data.trim()) return data;
+    if (data && typeof data === "object") {
+        if (data.detail) return data.detail;
+        if (data.title) return data.title;
+        if (data.message) return data.message;
+        if (data.error) return data.error;
+    }
 
     return fallback;
 }

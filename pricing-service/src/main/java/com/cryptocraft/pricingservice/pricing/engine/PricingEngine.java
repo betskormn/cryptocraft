@@ -25,13 +25,9 @@ public class PricingEngine {
     private final Random random = new Random();
     private final Map<Long, Long> versions = new ConcurrentHashMap<>();
 
+    // moves the price one step: random walk with a pull back to the base price, kept within [min, max]
     public void process(PriceConfig config) {
-        Long itemId = config.itemId();
-
-        BigDecimal current = currentCache.get(itemId);
-        if (current == null) {
-            current = config.basePrice();
-        }
+        BigDecimal current = currentPrice(config);
 
         double delta = (random.nextDouble() - 0.5) * 0.2;
         BigDecimal factor = BigDecimal.ONE.add(BigDecimal.valueOf(delta));
@@ -41,13 +37,33 @@ public class PricingEngine {
                 .multiply(factor)
                 .add(correction);
 
-        newPrice = newPrice
+        publish(config, clamp(newPrice, config));
+    }
+
+    /**
+     * Announces the current price again without moving it: for items on the stop-list (their price is
+     * frozen) and after an item change, so screens pick up the new state right away.
+     */
+    public void publishCurrent(PriceConfig config) {
+        publish(config, clamp(currentPrice(config), config));
+    }
+
+    private BigDecimal currentPrice(PriceConfig config) {
+        BigDecimal current = currentCache.get(config.itemId());
+        return current != null ? current : config.basePrice();
+    }
+
+    // also re-applies the range when min/max were changed in the admin
+    private static BigDecimal clamp(BigDecimal price, PriceConfig config) {
+        return price
                 .max(config.minPrice())
-                .min(config.maxPrice());
+                .min(config.maxPrice())
+                .setScale(2, RoundingMode.HALF_UP);
+    }
 
-        newPrice = newPrice.setScale(2, RoundingMode.HALF_UP);
-
-        currentCache.put(itemId, newPrice);
+    private void publish(PriceConfig config, BigDecimal price) {
+        Long itemId = config.itemId();
+        currentCache.put(itemId, price);
 
         long version = versions.merge(itemId, 1L, Long::sum);
         producer.sendPrice(
@@ -57,12 +73,14 @@ public class PricingEngine {
                         itemId,
                         config.name(),
                         config.type(),
-                        newPrice,
+                        config.displayOrder(),
+                        config.stopped(),
+                        price,
                         System.currentTimeMillis(),
                         version
                 )
         );
-        log.debug("KAFKA SEND → tenant={} itemId={} | price={} | version={}",
-                config.tenantSlug(), itemId, newPrice, version);
+        log.debug("KAFKA SEND → tenant={} itemId={} | price={} | stopped={} | version={}",
+                config.tenantSlug(), itemId, price, config.stopped(), version);
     }
 }

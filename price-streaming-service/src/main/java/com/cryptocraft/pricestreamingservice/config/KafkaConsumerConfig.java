@@ -2,28 +2,25 @@ package com.cryptocraft.pricestreamingservice.config;
 
 import com.cryptocraft.pricestreamingservice.model.PriceEvent;
 import com.cryptocraft.pricestreamingservice.util.JacksonDeserializer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Configuration
+@RequiredArgsConstructor
 public class KafkaConsumerConfig {
+
+    // bootstrap servers, group id and offset reset come from spring.kafka.* (per profile)
+    private final KafkaProperties kafkaProperties;
 
     @Bean
     public ConsumerFactory<String, PriceEvent> consumerFactory() {
-
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092");
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "price-stream-group");
-
         return new DefaultKafkaConsumerFactory<>(
-                props,
+                kafkaProperties.buildConsumerProperties(),
                 new StringDeserializer(),
                 new JacksonDeserializer<>(PriceEvent.class)
         );

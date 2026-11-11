@@ -20,7 +20,8 @@ public interface ProductMapper {
     @Mapping(target = "productId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(source = "quantity", target = "quantityInStock")
+    // stock changes only through PATCH /stock
+    @Mapping(target = "quantityInStock", ignore = true)
     @Mapping(target = "tenantId", ignore = true)
     @Mapping(target = "brand", ignore = true)
     @Mapping(target = "itemLinks", ignore = true)

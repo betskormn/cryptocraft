@@ -2,31 +2,17 @@ package com.cryptocraft.inventoryservice;
 
 import com.cryptocraft.inventoryservice.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.web.client.RestClient;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,42 +22,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Venue isolation end to end: the HTTP tenant filter, PostgreSQL row-level security under the
  * application role, the platform API and the cross-tenant internal endpoints.
  */
-@Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class TenantIsolationTest {
-
-    private static final String APP_DB_PASSWORD = "test-app-password";
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:latest");
-
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        // migrations run as the container superuser, the service as the RLS-bound application role
-        registry.add("spring.liquibase.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.liquibase.user", POSTGRES::getUsername);
-        registry.add("spring.liquibase.password", POSTGRES::getPassword);
-        registry.add("spring.liquibase.parameters.app_db_password", () -> APP_DB_PASSWORD);
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", () -> "cryptocraft_app");
-        registry.add("spring.datasource.password", () -> APP_DB_PASSWORD);
-        registry.add("eureka.client.enabled", () -> "false");
-    }
-
-    private static final JsonMapper JSON = JsonMapper.builder().build();
-
-    @LocalServerPort
-    private int port;
+class TenantIsolationTest extends AbstractInventoryIntegrationTest {
 
     @Autowired
     private DataSource dataSource;
-
-    private RestClient http;
-
-    @BeforeEach
-    void setUp() {
-        http = RestClient.create("http://localhost:" + port);
-    }
 
     @AfterEach
     void clearTenantContext() {
@@ -187,14 +141,6 @@ class TenantIsolationTest {
 
     // --- helpers ---
 
-    private long createVenue(boolean demoMenu) {
-        String slug = uniqueSlug();
-        Response response = call(HttpMethod.POST, "/api/v1/platform/tenants", null,
-                Map.of("name", slug, "slug", slug, "demoMenu", demoMenu));
-        assertThat(response.status()).isEqualTo(201);
-        return response.json().get("tenantId").asLong();
-    }
-
     private void suspend(long venue) {
         Response response = call(HttpMethod.PUT, "/api/v1/platform/tenants/" + venue, null, Map.of(
                 "name", "suspended-" + venue,
@@ -209,10 +155,6 @@ class TenantIsolationTest {
         return ids(call(HttpMethod.GET, "/internal/prices", null, null), "tenantId").stream().distinct().toList();
     }
 
-    private static String uniqueSlug() {
-        return "venue-" + UUID.randomUUID().toString().substring(0, 8);
-    }
-
     private static List<String> names(Response response) {
         return StreamSupport.stream(response.json().spliterator(), false)
                 .map(node -> node.get("name").asString())
@@ -224,23 +166,5 @@ class TenantIsolationTest {
         return StreamSupport.stream(response.json().spliterator(), false)
                 .map(node -> node.get(field).asLong())
                 .toList();
-    }
-
-    private Response call(HttpMethod method, String path, Object tenantId, Object body) {
-        RestClient.RequestBodySpec request = http.method(method).uri(path);
-        if (tenantId != null) {
-            request.header("X-Tenant-Id", String.valueOf(tenantId));
-        }
-        if (body != null) {
-            request.contentType(MediaType.APPLICATION_JSON).body(JSON.writeValueAsString(body));
-        }
-        return request.exchange((req, res) ->
-                new Response(res.getStatusCode().value(), new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8)));
-    }
-
-    private record Response(int status, String body) {
-        JsonNode json() {
-            return JSON.readTree(body);
-        }
     }
 }

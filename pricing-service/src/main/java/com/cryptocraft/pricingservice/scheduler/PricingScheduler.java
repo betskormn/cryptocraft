@@ -16,10 +16,15 @@ import java.util.stream.Collectors;
 /**
  * Moves each item's price once per its venue's price tick. A new item gets a price right away and is
  * then shifted by a random offset, so a venue's prices change one by one rather than all at once.
+ * Items on the stop-list keep their price: it is announced once (screens show them as sold out) and
+ * frozen until the item is back on sale.
  */
 @Component
 @RequiredArgsConstructor
 public class PricingScheduler {
+
+    // marks a stopped item that was already announced
+    private static final long FROZEN = Long.MAX_VALUE;
 
     private final PricingEngine pricingEngine;
     private final PriceConfigCache cache;
@@ -36,7 +41,14 @@ public class PricingScheduler {
         for (PriceConfig config : cache.getAll()) {
             long tickMillis = config.tickSeconds() * 1000L;
             Long due = nextChangeAt.get(config.itemId());
-            if (due == null) {
+
+            if (config.stopped()) {
+                if (due == null || due != FROZEN) {
+                    pricingEngine.publishCurrent(config);
+                    nextChangeAt.put(config.itemId(), FROZEN);
+                }
+            } else if (due == null || due == FROZEN) {
+                // new, or just back on sale: move now, then spread over the venue's tick
                 pricingEngine.process(config);
                 nextChangeAt.put(config.itemId(), now + ThreadLocalRandom.current().nextLong(1, tickMillis + 1));
             } else if (now >= due) {

@@ -19,6 +19,11 @@ export async function createBrand(dto: BrandRequestDto): Promise<BrandResponseDt
     return res.data;
 }
 
+export async function updateBrand(id: number, dto: BrandRequestDto): Promise<BrandResponseDto> {
+    const res = await http.put<BrandResponseDto>(`/api/v1/brands/${id}`, dto);
+    return res.data;
+}
+
 export async function deleteBrand(id: number): Promise<void> {
     await http.delete(`/api/v1/brands/${id}`);
 }

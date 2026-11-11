@@ -1,73 +1,145 @@
+# Production-like stack: all services with the `prod` Spring profile, no debug ports, database and
+# Kafka not published, secrets from .env (see .env.example). Public entry points: the gateway
+# (API, price sockets, /tv.html) and the admin UI.
+#   cp .env.example .env   # set passwords
+#   docker compose -f docker-compose-prod.yml up -d --build
 services:
   eureka-server:
-    image: docker.io/library/eureka-server:0.0.1-SNAPSHOT
     build:
       context: ./eureka-server
-    ports:
-      - "8761:8761"
-    container_name: eureka-server
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:8761/actuator/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     networks:
       - cryptocraft-network
 
   postgres:
-    image: postgres:latest
-    container_name: postgres
+    image: postgres:18
+    restart: unless-stopped
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mysecretpassword
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      - cryptocraft-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - cryptocraft-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # only reachable inside the compose network
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092" ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
     networks:
       - cryptocraft-network
 
   inventory-service:
-    image: inventory-service:latest
     build:
       context: ./inventory-service
-    ports:
-      - "8081:8081"
-      - "5005:5005"
-    container_name: inventory-service
+    restart: unless-stopped
     depends_on:
-      - eureka-server
-      - postgres
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      SPRING_PROFILES_ACTIVE: prod
+      DB_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
     command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "inventory-service.jar" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:8081/actuator/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+    networks:
+      - cryptocraft-network
+
+  pricing-service:
+    build:
+      context: ./pricing-service
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    networks:
+      - cryptocraft-network
+
+  price-streaming-service:
+    build:
+      context: ./price-streaming-service
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
     networks:
       - cryptocraft-network
 
   api-gateway:
-    image: api-gateway:latest
     build:
       context: ./api-gateway
-    ports:
-      - "8765:8765"
-    container_name: api-gateway
+    restart: unless-stopped
     depends_on:
-      - eureka-server
-      - inventory-service
+      eureka-server:
+        condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - INVENTORY_SERVICE_URL=http://inventory-service:8081
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "${GATEWAY_PORT:-8765}:8765"
     networks:
       - cryptocraft-network
 
   admin-ui:
-    image: cryptocraft-admin-ui:dev
     build:
       context: ./admin-ui
-    container_name: admin-ui
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_BASE_URL=http://api-gateway:8765
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
     depends_on:
       - api-gateway
+    ports:
+      - "${ADMIN_UI_PORT:-8080}:80"
     networks:
       - cryptocraft-network
 

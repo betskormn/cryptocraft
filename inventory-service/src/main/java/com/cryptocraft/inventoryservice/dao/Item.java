@@ -61,24 +61,32 @@ public class Item extends AuditingEntity implements HasTenant, Serializable {
     @Column(name = "max_price", nullable = false)
     private BigDecimal maxPrice;
 
+    // stop-list: temporarily not sold (out of an ingredient, kitchen closed); changed via PATCH /stop-list
+    @Column(nullable = false)
+    private boolean stopped;
+
+    // position on menus and TV screens; items without it go last, by name
+    @Column(name = "display_order")
+    private Integer displayOrder;
+
     @OneToMany(mappedBy = "item", fetch = FetchType.LAZY, orphanRemoval = true,
             cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @Builder.Default
     private List<ItemProduct> productLinks = new ArrayList<>();
 
     public void addProduct(Product product) {
-        addProduct(product, 1);
+        addProduct(product, BigDecimal.ONE);
     }
 
-    public void addProduct(Product product, int quantity) {
+    public void addProduct(Product product, BigDecimal quantity) {
         if (product == null) throw new IllegalArgumentException("product is null");
-        if (quantity <= 0) throw new IllegalArgumentException("quantity must be > 0");
+        if (quantity == null || quantity.signum() <= 0) throw new IllegalArgumentException("quantity must be > 0");
 
         productLinks.stream()
                 .filter(l -> product.equals(l.getProduct()))
                 .findFirst()
                 .ifPresentOrElse(
-                        link -> link.setQuantity(link.getQuantity() + quantity),
+                        link -> link.setQuantity(link.getQuantity().add(quantity)),
                         () -> {
                             ItemProduct link = new ItemProduct();
                             link.setItem(this);
