@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,8 @@ public class ItemServiceImpl implements ItemService {
     private final ItemMapper itemMapper;
     // pricing and TV screens are notified after commit (ItemConfigPublisher)
     private final ApplicationEventPublisher eventPublisher;
+
+    private static final BigDecimal MAX_PORTIONS = BigDecimal.valueOf(Integer.MAX_VALUE);
 
     // items with a display order first (ascending), then the rest by name
     private static final Comparator<Item> MENU_ORDER = Comparator
@@ -165,8 +168,11 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SellableItemResponseDto> getSellableItems() {
-        return itemRepository.findAllWithProducts().stream()
+    public List<SellableItemResponseDto> getSellableItems(Collection<Long> itemIds) {
+        List<Item> items = itemIds == null
+                ? itemRepository.findAllWithProducts()
+                : itemRepository.findAllWithProductsByIds(itemIds);
+        return items.stream()
                 .sorted(MENU_ORDER)
                 .map(item -> new SellableItemResponseDto(
                         item.getItemId(),
@@ -179,11 +185,13 @@ public class ItemServiceImpl implements ItemService {
                 .toList();
     }
 
-    // how many times the recipe fits into current stock; null when the item has no recipe
+    // how many times the recipe fits into current stock; null when the item has no recipe.
+    // Capped at Integer.MAX_VALUE: large stock with a tiny recipe quantity would overflow an int.
     private static Integer estimatePortions(Item item) {
         return item.getProductLinks().stream()
                 .map(link -> link.getProduct().getQuantityInStock()
                         .divideToIntegralValue(link.getQuantity())
+                        .min(MAX_PORTIONS)
                         .intValue())
                 .min(Integer::compare)
                 .orElse(null);

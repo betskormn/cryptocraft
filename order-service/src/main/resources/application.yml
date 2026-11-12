@@ -35,11 +35,30 @@ spring:
     parameters:
       order_db_user: ${ORDER_DB_USER:cryptocraft_order}
       order_db_password: ${ORDER_DB_PASSWORD:cryptocraft_order}
+  security:
+    oauth2:
+      client:
+        # Order's own token (client credentials, scope "internal") for Inventory's tenant-scoped API
+        registration:
+          identity:
+            provider: identity
+            client-id: order-service
+            client-secret: ${ORDER_CLIENT_SECRET:order-dev-secret}
+            authorization-grant-type: client_credentials
+            scope: internal
+        provider:
+          identity:
+            token-uri: ${IDENTITY_TOKEN_URL:http://localhost:8086/oauth2/token}
   kafka:
     producer:
       # order events (OrderEventPublisher); do not hold a request long if Kafka is down
       properties:
         max.block.ms: 5000
+  cloud:
+    loadbalancer:
+      cache:
+        # instance list refresh; short so a restarted Inventory/Pricing is reachable again within seconds
+        ttl: 5s
   docker:
     compose:
       # infrastructure is started explicitly (see README); Boot's compose support would also
@@ -70,3 +89,8 @@ management:
     web:
       exposure:
         include: health,info
+
+cryptocraft:
+  security:
+    # staff tokens are signed by identity-service; its public keys are fetched once and cached
+    jwk-set-uri: ${IDENTITY_JWKS_URL:http://localhost:8086/oauth2/jwks}

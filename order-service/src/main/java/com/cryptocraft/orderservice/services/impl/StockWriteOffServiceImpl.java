@@ -5,6 +5,7 @@ import com.cryptocraft.orderservice.clients.dto.StockConsumptionRequestDto;
 import com.cryptocraft.orderservice.dao.Order;
 import com.cryptocraft.orderservice.dao.enums.StockStatus;
 import com.cryptocraft.orderservice.exceptions.DownstreamUnavailableException;
+import com.cryptocraft.orderservice.exceptions.StockWriteOffRejectedException;
 import com.cryptocraft.orderservice.repositories.OrderRepository;
 import com.cryptocraft.orderservice.services.StockWriteOffService;
 import com.cryptocraft.tenant.TenantContext;
@@ -42,6 +43,12 @@ public class StockWriteOffServiceImpl implements StockWriteOffService {
         } catch (DownstreamUnavailableException e) {
             log.warn("Stock write-off for order:{} postponed: {}", orderId,
                     e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+            return false;
+        } catch (StockWriteOffRejectedException e) {
+            // retrying would fail forever and hold the retry queue; staff correct the stock by hand
+            order.setStockStatus(StockStatus.FAILED);
+            orderRepository.save(order);
+            log.error("Stock write-off for order:{} failed for good: {}", orderId, e.getMessage());
             return false;
         }
         order.setStockStatus(StockStatus.WRITTEN_OFF);

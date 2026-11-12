@@ -25,7 +25,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql
-      # creates the `orders` database for order-service on a new volume
+      # creates the `orders` and `identity` databases on a new volume
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
@@ -62,6 +62,36 @@ services:
       interval: 10s
       timeout: 10s
       retries: 30
+    networks:
+      - cryptocraft-network
+
+  identity-service:
+    build:
+      context: ./identity-service
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?set IDENTITY_DB_PASSWORD in .env}
+      # the URLs browsers use: the sign-in page and the admin UI
+      IDENTITY_ISSUER: ${IDENTITY_PUBLIC_URL:?set IDENTITY_PUBLIC_URL in .env}
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
+      ORDER_CLIENT_SECRET: ${ORDER_CLIENT_SECRET:?set ORDER_CLIENT_SECRET in .env}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?set BOOTSTRAP_ADMIN_EMAIL in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD in .env}
+    ports:
+      - "${IDENTITY_PORT:-8086}:8086"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:8086/actuator/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 40
     networks:
       - cryptocraft-network
 
@@ -134,6 +164,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?set ORDER_DB_PASSWORD in .env}
+      ORDER_CLIENT_SECRET: ${ORDER_CLIENT_SECRET:?set ORDER_CLIENT_SECRET in .env}
     command: [ "java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "order-service.jar" ]
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:8084/actuator/health" ]
@@ -152,6 +183,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      IDENTITY_PUBLIC_URL: ${IDENTITY_PUBLIC_URL:?set IDENTITY_PUBLIC_URL in .env}
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
     ports:
       - "${GATEWAY_PORT:-8765}:8765"
     networks:

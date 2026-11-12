@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
 
 import javax.sql.DataSource;
 
@@ -22,6 +21,8 @@ import javax.sql.DataSource;
 @AutoConfiguration
 @EnableConfigurationProperties(TenantProperties.class)
 public class TenantSupportAutoConfiguration {
+
+    public static final int TENANT_FILTER_ORDER = -90;
 
     @Bean
     @ConditionalOnClass(DataSource.class)
@@ -43,7 +44,9 @@ public class TenantSupportAutoConfiguration {
                                                              TenantProperties properties) {
         FilterRegistrationBean<TenantFilter> bean = new FilterRegistrationBean<>();
         bean.setFilter(new TenantFilter(tenantStatusLookup, properties.freePaths()));
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 10); // before anything that reads tenant data
+        // after Spring Security (-100): an anonymous caller gets 401 before learning whether a venue exists;
+        // still before anything that reads tenant data
+        bean.setOrder(TENANT_FILTER_ORDER);
         return bean;
     }
 }

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Alert,
     Box,
@@ -19,7 +19,9 @@ import {
     Typography,
 } from "@mui/material";
 
-import { getSessionBill } from "../api/sessions.api";
+import { approveGuest, getSessionBill, rejectGuest } from "../api/sessions.api";
+import { getApiErrorMessage } from "../api/error";
+import type { LineStatus } from "../api/kitchen.api";
 
 type Props = {
     open: boolean;
@@ -31,10 +33,27 @@ type Props = {
 };
 
 const money = (value: number) => value.toFixed(2);
+// cancelled lines stay in the bill, struck out, and are not charged
+const LINE_STATUS: Record<LineStatus, string> = {
+    NEW: "sent",
+    PREPARING: "preparing",
+    READY: "ready",
+    SERVED: "served",
+    CANCELLED: "cancelled",
+};
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 // the bill of one visit, split per guest; every line at the price locked when it was sent
 export default function SessionBillDialog({ open, sessionId, closing = false, errorText = null, onClose, onCloseVisit }: Props) {
+    const queryClient = useQueryClient();
+    const decideMutation = useMutation({
+        mutationFn: ({ participantId, approve }: { participantId: string; approve: boolean }) =>
+            approve ? approveGuest(sessionId, participantId) : rejectGuest(sessionId, participantId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["session-bill", sessionId] });
+            await queryClient.invalidateQueries({ queryKey: ["open-sessions"] });
+        },
+    });
     const billQuery = useQuery({
         queryKey: ["session-bill", sessionId],
         queryFn: () => getSessionBill(sessionId),
@@ -61,13 +80,45 @@ export default function SessionBillDialog({ open, sessionId, closing = false, er
                 ) : null}
                 {billQuery.isLoading ? <CircularProgress /> : null}
                 {billQuery.isError ? <Alert severity="error">Error loading the bill</Alert> : null}
+                {decideMutation.isError ? (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {getApiErrorMessage(decideMutation.error, "Failed to update the guest")}
+                    </Alert>
+                ) : null}
 
                 <Stack spacing={2} divider={<Divider flexItem />}>
                     {bill?.participants.map((p, idx) => (
                         <Box key={p.participantId}>
-                            <Stack direction="row" justifyContent="space-between" alignItems="baseline" mb={1}>
-                                <Typography fontWeight={800}>{p.displayName || `Guest ${idx + 1}`}</Typography>
-                                <Typography fontWeight={800}>{money(p.total)}</Typography>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1} gap={1} flexWrap="wrap">
+                                <Stack direction="row" alignItems="center" gap={1}>
+                                    <Typography fontWeight={800}>{p.displayName || `Guest ${idx + 1}`}</Typography>
+                                    {p.status === "PENDING" ? <Chip size="small" color="warning" label="new guest, not confirmed" /> : null}
+                                    {p.status === "REJECTED" ? <Chip size="small" color="error" variant="outlined" label="rejected" /> : null}
+                                </Stack>
+                                <Stack direction="row" alignItems="center" gap={1}>
+                                    {p.status === "PENDING" ? (
+                                        <>
+                                            <Button
+                                                size="small"
+                                                color="error"
+                                                variant="outlined"
+                                                disabled={decideMutation.isPending}
+                                                onClick={() => decideMutation.mutate({ participantId: p.participantId, approve: false })}
+                                            >
+                                                Not at the table
+                                            </Button>
+                                            <Button
+                                                size="small"
+                                                variant="contained"
+                                                disabled={decideMutation.isPending}
+                                                onClick={() => decideMutation.mutate({ participantId: p.participantId, approve: true })}
+                                            >
+                                                Confirm guest
+                                            </Button>
+                                        </>
+                                    ) : null}
+                                    <Typography fontWeight={800}>{money(p.total)}</Typography>
+                                </Stack>
                             </Stack>
                             {p.orders.length === 0 ? (
                                 <Typography variant="body2" color="text.secondary">
@@ -86,18 +137,35 @@ export default function SessionBillDialog({ open, sessionId, closing = false, er
                                     </TableHead>
                                     <TableBody>
                                         {p.orders.flatMap((o) =>
-                                            o.lines.map((l) => (
-                                                <TableRow key={`${o.orderId}-${l.itemId}`}>
-                                                    <TableCell sx={{ color: "text.secondary" }}>{time(o.createdAt)}</TableCell>
-                                                    <TableCell>
-                                                        {l.itemName}{" "}
-                                                        <Chip size="small" variant="outlined" label={l.itemType === "DRINK" ? "bar" : "kitchen"} />
-                                                    </TableCell>
-                                                    <TableCell align="right">{l.quantity}</TableCell>
-                                                    <TableCell align="right">{money(l.unitPrice)}</TableCell>
-                                                    <TableCell align="right">{money(l.lineTotal)}</TableCell>
-                                                </TableRow>
-                                            ))
+                                            o.lines.map((l) => {
+                                                const cancelled = l.status === "CANCELLED";
+                                                const held = o.status === "AWAITING_APPROVAL";
+                                                const struck = cancelled ? { textDecoration: "line-through", color: "text.disabled" } : undefined;
+                                                return (
+                                                    <TableRow key={l.lineId}>
+                                                        <TableCell sx={{ color: "text.secondary" }}>{time(o.createdAt)}</TableCell>
+                                                        <TableCell>
+                                                            <Box component="span" sx={struck}>
+                                                                {l.itemName}
+                                                            </Box>{" "}
+                                                            <Chip size="small" variant="outlined" label={l.itemType === "DRINK" ? "bar" : "kitchen"} />{" "}
+                                                            <Chip
+                                                                size="small"
+                                                                color={held ? "warning" : cancelled ? "error" : l.status === "SERVED" ? "success" : "default"}
+                                                                label={held ? "waits for confirmation" : LINE_STATUS[l.status]}
+                                                            />
+                                                            {cancelled && l.cancelReason ? (
+                                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                                                    {l.cancelReason}
+                                                                </Typography>
+                                                            ) : null}
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={struck}>{l.quantity}</TableCell>
+                                                        <TableCell align="right" sx={struck}>{money(l.unitPrice)}</TableCell>
+                                                        <TableCell align="right" sx={struck}>{money(l.lineTotal)}</TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
                                         )}
                                     </TableBody>
                                 </Table>

@@ -1,5 +1,6 @@
 package com.cryptocraft.inventoryservice;
 
+import com.cryptocraft.security.test.TestTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -49,6 +50,8 @@ abstract class AbstractInventoryIntegrationTest {
         registry.add("eureka.client.enabled", () -> "false");
         // no Kafka in these tests; item change events are a best-effort notification
         registry.add("inventory.events.enabled", () -> "false");
+        // tokens are signed by TestTokens instead of identity-service
+        registry.add("cryptocraft.security.public-key", TestTokens::publicKey);
     }
 
     static final JsonMapper JSON = JsonMapper.builder().build();
@@ -75,8 +78,16 @@ abstract class AbstractInventoryIntegrationTest {
         return "venue-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
+    // as a platform admin, who may do anything; role rules are covered by InventorySecurityTest
     Response call(HttpMethod method, String path, Object tenantId, Object body) {
+        return callAs(TestTokens.platformAdmin(), method, path, tenantId, body);
+    }
+
+    Response callAs(String token, HttpMethod method, String path, Object tenantId, Object body) {
         RestClient.RequestBodySpec request = http.method(method).uri(path);
+        if (token != null) {
+            request.header("Authorization", "Bearer " + token);
+        }
         if (tenantId != null) {
             request.header("X-Tenant-Id", String.valueOf(tenantId));
         }

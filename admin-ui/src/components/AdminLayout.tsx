@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import {
+    Alert,
     AppBar,
     Box,
     Container,
@@ -17,20 +18,33 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import SoupKitchenOutlinedIcon from "@mui/icons-material/SoupKitchenOutlined";
+import LocalBarOutlinedIcon from "@mui/icons-material/LocalBarOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 
+import { useAuth } from "../auth/AuthContext";
+import type { Area } from "../auth/access";
 import TenantSwitcher from "./TenantSwitcher";
+import UserMenu from "./UserMenu";
 
 const drawerWidth = 240;
 
-const NAV_ITEMS = [
-    { to: "/brands", label: "Brands", Icon: StorefrontOutlinedIcon },
-    { to: "/products", label: "Products", Icon: Inventory2OutlinedIcon },
-    { to: "/items", label: "Items", Icon: CategoryOutlinedIcon },
-    { to: "/tables", label: "Tables", Icon: TableRestaurantOutlinedIcon },
-    { to: "/visits", label: "Visits", Icon: ReceiptLongOutlinedIcon },
+// each page shows only to the roles that may use it (auth/access.ts)
+const NAV_ITEMS: Array<{ to: string; label: string; Icon: typeof StorefrontOutlinedIcon; area: Area }> = [
+    { to: "/brands", label: "Brands", Icon: StorefrontOutlinedIcon, area: "menu" },
+    { to: "/products", label: "Products", Icon: Inventory2OutlinedIcon, area: "menu" },
+    { to: "/items", label: "Items", Icon: CategoryOutlinedIcon, area: "menu" },
+    { to: "/tables", label: "Tables", Icon: TableRestaurantOutlinedIcon, area: "tables" },
+    { to: "/visits", label: "Visits", Icon: ReceiptLongOutlinedIcon, area: "visits" },
+    // full-screen kitchen/bar displays (KDS)
+    { to: "/kds/kitchen", label: "Kitchen screen", Icon: SoupKitchenOutlinedIcon, area: "kitchen" },
+    { to: "/kds/bar", label: "Bar screen", Icon: LocalBarOutlinedIcon, area: "kitchen" },
+    { to: "/staff", label: "Staff", Icon: BadgeOutlinedIcon, area: "staff" },
 ];
 
 export default function AdminLayout() {
+    const { venue, can } = useAuth();
+
     return (
         <Box sx={{ display: "flex", minHeight: "100vh" }}>
             <AppBar position="fixed" elevation={0} sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
@@ -43,6 +57,7 @@ export default function AdminLayout() {
                         Venue
                     </Typography>
                     <TenantSwitcher />
+                    <UserMenu />
                 </Toolbar>
             </AppBar>
 
@@ -65,7 +80,7 @@ export default function AdminLayout() {
 
                 <Box sx={{ px: 1.2, py: 1 }}>
                     <List sx={{ display: "grid", gap: 0.5 }}>
-                        {NAV_ITEMS.map(({ to, label, Icon }) => (
+                        {NAV_ITEMS.filter((item) => can(item.area)).map(({ to, label, Icon }) => (
                             <ListItemButton
                                 key={to}
                                 component={NavLink}
@@ -92,7 +107,13 @@ export default function AdminLayout() {
             <Box component="main" sx={{ flexGrow: 1 }}>
                 <Toolbar />
                 <Container sx={{ py: 3 }}>
-                    <Outlet />
+                    {venue ? (
+                        <Outlet />
+                    ) : (
+                        <Alert severity="info">
+                            You have no venues yet. Ask the venue's admin to add you on their Staff page.
+                        </Alert>
+                    )}
                 </Container>
             </Box>
         </Box>

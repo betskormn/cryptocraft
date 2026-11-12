@@ -26,6 +26,8 @@ repositories {
 dependencies {
     implementation platform(project(':platform'))
     implementation project(':tenant-support')
+    implementation project(':service-support')
+    implementation project(':security-support')
     annotationProcessor platform(project(':platform'))
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -49,6 +51,7 @@ dependencies {
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation testFixtures(project(':security-support'))
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'

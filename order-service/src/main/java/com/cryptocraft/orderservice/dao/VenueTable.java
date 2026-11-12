@@ -1,5 +1,6 @@
 package com.cryptocraft.orderservice.dao;
 
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;

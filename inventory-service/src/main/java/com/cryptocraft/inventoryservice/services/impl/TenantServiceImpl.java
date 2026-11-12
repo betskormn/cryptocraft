@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -80,6 +82,16 @@ public class TenantServiceImpl implements TenantService {
     public List<TenantResponseDto> getAllTenants() {
         return tenantRepository.findAll()
                 .stream()
+                .map(tenantMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TenantResponseDto> getTenantsByIds(Collection<Long> ids) {
+        return tenantRepository.findAllById(ids)
+                .stream()
+                .sorted(Comparator.comparing(Tenant::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(tenantMapper::toDto)
                 .toList();
     }

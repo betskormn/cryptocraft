@@ -1,6 +1,7 @@
 package com.cryptocraft.inventoryservice.dao;
 
 import com.cryptocraft.inventoryservice.config.converters.TenantStatusConverter;
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.TenantStatus;
 import jakarta.persistence.*;
 import lombok.*;

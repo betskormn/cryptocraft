@@ -58,7 +58,7 @@ eureka:
 
 tenant:
   # served without X-Tenant-Id: service-to-service, venue management (platform) and tooling
-  free-paths: /internal/,/api/v1/platform/,/actuator,/v3/api-docs,/swagger-ui,/error
+  free-paths: /internal/,/api/v1/platform/,/api/v1/venues,/actuator,/v3/api-docs,/swagger-ui,/error
 
 server:
   port: 8081
@@ -73,3 +73,8 @@ logging:
   level:
     liquibase: INFO
     org.springframework.boot.autoconfigure.liquibase: INFO
+
+cryptocraft:
+  security:
+    # staff tokens are signed by identity-service; its public keys are fetched once and cached
+    jwk-set-uri: ${IDENTITY_JWKS_URL:http://localhost:8086/oauth2/jwks}

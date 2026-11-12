@@ -4,6 +4,7 @@ import com.cryptocraft.orderservice.config.converters.OrderStatusConverter;
 import com.cryptocraft.orderservice.config.converters.StockStatusConverter;
 import com.cryptocraft.orderservice.dao.enums.OrderStatus;
 import com.cryptocraft.orderservice.dao.enums.StockStatus;
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;
@@ -12,6 +13,7 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -61,6 +63,10 @@ public class Order extends AuditingEntity implements HasTenant, Serializable {
 
     @Column(nullable = false)
     private BigDecimal total;
+
+    // when it went to the kitchen/bar; null while AWAITING_APPROVAL. The screens count waiting time from here
+    @Column(name = "sent_at")
+    private Instant sentAt;
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;

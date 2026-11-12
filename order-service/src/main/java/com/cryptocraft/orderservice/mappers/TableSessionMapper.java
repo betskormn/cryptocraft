@@ -11,5 +11,6 @@ public interface TableSessionMapper {
     @Mapping(target = "tableId", source = "table.tableId")
     @Mapping(target = "tableLabel", source = "table.label")
     @Mapping(target = "openedAt", source = "createdAt")
+    @Mapping(target = "pendingGuests", ignore = true)
     TableSessionResponseDto toDto(TableSession session);
 }

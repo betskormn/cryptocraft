@@ -3,6 +3,8 @@ package com.cryptocraft.orderservice.controllers;
 import com.cryptocraft.orderservice.controllers.dto.request.PlaceOrderRequestDto;
 import com.cryptocraft.orderservice.controllers.dto.response.OrderResponseDto;
 import com.cryptocraft.orderservice.services.OrderService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,7 +21,6 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.UUID;
 
-import static com.cryptocraft.orderservice.controllers.ParticipantController.PARTICIPANT_HEADER;
 
 @RestController
 @RequestMapping(value = "/api/v1/orders", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -49,11 +50,10 @@ public class OrderController {
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<OrderResponseDto> placeOrder(
-            @Parameter(description = "participantId returned when joining the table")
-            @RequestHeader(PARTICIPANT_HEADER) UUID participantId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @RequestBody @Valid PlaceOrderRequestDto requestDto
     ) {
-        OrderService.Result result = orderService.placeOrder(participantId, requestDto);
+        OrderService.Result result = orderService.placeOrder(ParticipantController.guestOf(jwt), requestDto);
         if (!result.created()) {
             return ResponseEntity.ok(result.order());
         }

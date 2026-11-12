@@ -17,7 +17,11 @@ public enum OrderStatus {
 
     // sent to the kitchen/bar with locked prices
     PLACED(1),
-    CANCELLED(2);
+    // every line was cancelled by the kitchen/bar, or the guest was not confirmed by a waiter
+    CANCELLED(2),
+    // the first orders of a guest a waiter has not confirmed yet: prices are locked, but nothing goes to the
+    // kitchen/bar or the stock until then
+    AWAITING_APPROVAL(3);
 
     private final int id;
 

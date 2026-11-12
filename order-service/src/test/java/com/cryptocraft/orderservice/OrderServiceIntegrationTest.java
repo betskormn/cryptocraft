@@ -1,16 +1,21 @@
 package com.cryptocraft.orderservice;
 
+import com.cryptocraft.orderservice.clients.IdentityClient;
 import com.cryptocraft.orderservice.clients.InventoryClient;
 import com.cryptocraft.orderservice.clients.PricingClient;
 import com.cryptocraft.orderservice.clients.dto.CurrentPriceDto;
+import com.cryptocraft.orderservice.clients.dto.GuestTokenDto;
 import com.cryptocraft.orderservice.clients.dto.SellableItemDto;
 import com.cryptocraft.orderservice.clients.dto.StockConsumptionRequestDto;
 import com.cryptocraft.orderservice.clients.dto.TenantDto;
 import com.cryptocraft.orderservice.exceptions.DownstreamUnavailableException;
+import com.cryptocraft.orderservice.exceptions.StockWriteOffRejectedException;
 import com.cryptocraft.orderservice.scheduler.StockWriteOffRetrier;
+import com.cryptocraft.security.test.TestTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -27,21 +32,28 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +94,8 @@ class OrderServiceIntegrationTest {
         // the retry job is called directly
         registry.add("order.stock-retry-ms", () -> "3600000");
         registry.add("order.stock-retry-min-age-seconds", () -> "0");
+        // tokens are signed by TestTokens instead of identity-service
+        registry.add("cryptocraft.security.public-key", TestTokens::publicKey);
     }
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -91,6 +105,10 @@ class OrderServiceIntegrationTest {
 
     @MockitoBean
     private PricingClient pricingClient;
+
+    // signs guest tokens like identity-service would
+    @MockitoBean
+    private IdentityClient identityClient;
 
     @Autowired
     private StockWriteOffRetrier stockWriteOffRetrier;
@@ -103,7 +121,9 @@ class OrderServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         http = RestClient.create("http://localhost:" + port);
-        reset(inventoryClient, pricingClient);
+        reset(inventoryClient, pricingClient, identityClient);
+        when(identityClient.issueGuestToken(anyLong(), any(), any())).thenAnswer(call -> new GuestTokenDto(
+                TestTokens.guest(call.getArgument(0, Long.class), call.getArgument(1, UUID.class)), Instant.now().plusSeconds(3600)));
         when(inventoryClient.getTenant(anyLong())).thenReturn(Optional.empty());
         when(inventoryClient.getTenant(VENUE_A)).thenReturn(Optional.of(new TenantDto(VENUE_A, "ACTIVE")));
         when(inventoryClient.getTenant(VENUE_B)).thenReturn(Optional.of(new TenantDto(VENUE_B, "ACTIVE")));
@@ -137,7 +157,9 @@ class OrderServiceIntegrationTest {
     @Test
     void unknownVenueIsRejected() {
         assertThat(call(HttpMethod.GET, "/api/v1/tables", UNKNOWN_VENUE, null, null).status()).isEqualTo(404);
-        assertThat(call(HttpMethod.GET, "/api/v1/tables", null, null, null).status()).isEqualTo(400);
+        // a guest who does not say which venue
+        assertThat(callAs(null, HttpMethod.POST, "/api/v1/table-sessions/join", null, Map.of("tableCode", "ANYCODE12345")).status())
+                .isEqualTo(400);
     }
 
     // --- orders ---
@@ -206,8 +228,9 @@ class OrderServiceIntegrationTest {
         assertThat(call(HttpMethod.POST, "/api/v1/orders", VENUE_A, guest,
                 Map.of("clientOrderId", UUID.randomUUID().toString(), "lines", tooManyLines)).status()).isEqualTo(400);
 
+        // not a guest: only guests order with their own token
         assertThat(call(HttpMethod.POST, "/api/v1/orders", VENUE_A, null,
-                Map.of("clientOrderId", "x", "lines", List.of(Map.of("itemId", NEGRONI, "quantity", 1)))).status()).isEqualTo(400);
+                Map.of("clientOrderId", "x", "lines", List.of(Map.of("itemId", NEGRONI, "quantity", 1)))).status()).isEqualTo(403);
     }
 
     @Test
@@ -248,11 +271,13 @@ class OrderServiceIntegrationTest {
 
         JsonNode order = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 2)).json();
 
+        // the guest does not wait for the write-off: it happens right after, on another thread
+        assertThat(order.get("stockStatus").asString()).isEqualTo("PENDING");
         ArgumentCaptor<StockConsumptionRequestDto> request = ArgumentCaptor.forClass(StockConsumptionRequestDto.class);
-        verify(inventoryClient).writeOffStock(eq(VENUE_A), request.capture());
+        verify(inventoryClient, timeout(5000)).writeOffStock(eq(VENUE_A), request.capture());
         assertThat(request.getValue().orderId()).isEqualTo(order.get("orderId").asString());
         assertThat(request.getValue().lines()).containsExactly(new StockConsumptionRequestDto.Line(NEGRONI, 2));
-        assertThat(orderStockStatus(order)).isEqualTo("WRITTEN_OFF");
+        awaitStockStatus(order, "WRITTEN_OFF");
     }
 
     @Test
@@ -262,12 +287,124 @@ class OrderServiceIntegrationTest {
                 .when(inventoryClient).writeOffStock(anyLong(), any());
 
         JsonNode order = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+        verify(inventoryClient, timeout(5000)).writeOffStock(anyLong(), any());
         assertThat(orderStockStatus(order)).isEqualTo("PENDING");
 
         doNothing().when(inventoryClient).writeOffStock(anyLong(), any());
         stockWriteOffRetrier.retryPendingWriteOffs();
 
         assertThat(orderStockStatus(order)).isEqualTo("WRITTEN_OFF");
+    }
+
+    @Test
+    void writeOffRefusedByInventoryIsNotRetried() {
+        UUID guest = joinNewTable(VENUE_A);
+        doThrow(new StockWriteOffRejectedException("Stock write-off rejected: item deleted", null))
+                .when(inventoryClient).writeOffStock(anyLong(), any());
+
+        JsonNode order = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+        awaitStockStatus(order, "FAILED");
+
+        stockWriteOffRetrier.retryPendingWriteOffs();
+        verify(inventoryClient, times(1)).writeOffStock(anyLong(), any());
+        assertThat(orderStockStatus(order)).isEqualTo("FAILED");
+    }
+
+    @Test
+    void menuIsAskedOnlyForTheOrderedItems() {
+        UUID guest = joinNewTable(VENUE_A);
+
+        placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1));
+
+        verify(inventoryClient).getSellableItems(eq(VENUE_A), eq(Set.of(NEGRONI)));
+    }
+
+    // --- kitchen / bar screens ---
+
+    @Test
+    void eachStationSeesItsOwnLinesInTheOrderTheyWereSent() {
+        String code = createTable(VENUE_A, "Table " + unique());
+        JsonNode guest = join(VENUE_A, code, "Anna").json();
+        UUID anna = UUID.fromString(guest.get("participantId").asString());
+        JsonNode first = placeOrder(VENUE_A, anna, UUID.randomUUID().toString(), Map.of(NEGRONI, 1, FRIES, 2)).json();
+        JsonNode second = placeOrder(VENUE_A, anna, UUID.randomUUID().toString(), Map.of(FRIES, 1)).json();
+
+        List<JsonNode> kitchen = queueOf(VENUE_A, "MEAL", first, second);
+        assertThat(kitchen).extracting(line -> line.get("orderId").asString())
+                .containsExactly(first.get("orderId").asString(), second.get("orderId").asString());
+        JsonNode fries = kitchen.getFirst();
+        assertThat(fries.get("itemName").asString()).isEqualTo("French Fries");
+        assertThat(fries.get("quantity").asInt()).isEqualTo(2);
+        assertThat(fries.get("status").asString()).isEqualTo("NEW");
+        assertThat(fries.get("tableLabel").asString()).isEqualTo(guest.get("tableLabel").asString());
+        assertThat(fries.get("guestName").asString()).isEqualTo("Anna");
+
+        assertThat(queueOf(VENUE_A, "DRINK", first, second)).extracting(line -> line.get("itemName").asString())
+                .containsExactly("Negroni");
+    }
+
+    @Test
+    void lineMovesAcrossTheScreenAndLeavesItWhenServed() {
+        JsonNode order = placeOrder(VENUE_A, joinNewTable(VENUE_A), UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+        long line = lineId(order, "Negroni");
+
+        assertThat(changeStatus(VENUE_A, line, "PREPARING", null).json().get("status").asString()).isEqualTo("PREPARING");
+        assertThat(changeStatus(VENUE_A, line, "READY", null).status()).isEqualTo(200);
+        // a mis-tap is undone by moving the line back
+        assertThat(changeStatus(VENUE_A, line, "PREPARING", null).status()).isEqualTo(200);
+        assertThat(changeStatus(VENUE_A, line, "SERVED", null).json().get("statusChangedAt").isNull()).isFalse();
+
+        assertThat(queueOf(VENUE_A, "DRINK", order)).isEmpty();
+        // the same tap from a second screen changes nothing
+        assertThat(changeStatus(VENUE_A, line, "SERVED", null).status()).isEqualTo(200);
+        assertThat(changeStatus(VENUE_A, line, "READY", null).status()).isEqualTo(409);
+        assertThat(changeStatus(VENUE_A, line, "CANCELLED", null).status()).isEqualTo(409);
+    }
+
+    @Test
+    void cancelledLineIsTakenOffTheGuestsBill() {
+        UUID guest = joinNewTable(VENUE_A);
+        JsonNode order = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 2, FRIES, 1)).json();
+        assertThat(decimal(myBill(VENUE_A, guest).get("total"))).isEqualByComparingTo("331");
+
+        Response cancelled = changeStatus(VENUE_A, lineId(order, "French Fries"), "CANCELLED", " Ran out ");
+        assertThat(cancelled.status()).isEqualTo(200);
+        assertThat(queueOf(VENUE_A, "MEAL", order)).isEmpty();
+
+        JsonNode bill = myBill(VENUE_A, guest);
+        assertThat(decimal(bill.get("total"))).isEqualByComparingTo("241");
+        JsonNode billOrder = bill.get("orders").get(0);
+        assertThat(decimal(billOrder.get("total"))).isEqualByComparingTo("241");
+        JsonNode fries = StreamSupport.stream(billOrder.get("lines").spliterator(), false)
+                .filter(l -> l.get("itemName").asString().equals("French Fries"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(fries.get("status").asString()).isEqualTo("CANCELLED");
+        assertThat(fries.get("cancelReason").asString()).isEqualTo("Ran out");
+
+        // nothing left to charge: the whole order is cancelled
+        changeStatus(VENUE_A, lineId(order, "Negroni"), "CANCELLED", null);
+        bill = myBill(VENUE_A, guest);
+        assertThat(decimal(bill.get("total"))).isEqualByComparingTo("0");
+        assertThat(bill.get("orders").get(0).get("status").asString()).isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void invalidStatusOrStationIsRejected() {
+        JsonNode order = placeOrder(VENUE_A, joinNewTable(VENUE_A), UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+
+        assertThat(changeStatus(VENUE_A, lineId(order, "Negroni"), "BURNT", null).status()).isEqualTo(400);
+        assertThat(changeStatus(VENUE_A, 99_999_999L, "READY", null).status()).isEqualTo(404);
+        assertThat(call(HttpMethod.GET, "/api/v1/kitchen/lines?itemType=COFFEE", VENUE_A, null, null).status()).isEqualTo(400);
+    }
+
+    @Test
+    void venuesDoNotSeeEachOthersKitchen() {
+        JsonNode order = placeOrder(VENUE_A, joinNewTable(VENUE_A), UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+
+        assertThat(queueOf(VENUE_B, "DRINK", order)).isEmpty();
+        assertThat(changeStatus(VENUE_B, lineId(order, "Negroni"), "READY", null).status()).isEqualTo(404);
+        assertThat(queueOf(VENUE_A, "DRINK", order)).hasSize(1);
     }
 
     // --- venue isolation ---
@@ -289,7 +426,7 @@ class OrderServiceIntegrationTest {
     // --- helpers ---
 
     private void menu(boolean available) {
-        when(inventoryClient.getSellableItems(anyLong())).thenReturn(List.of(
+        when(inventoryClient.getSellableItems(anyLong(), any())).thenReturn(List.of(
                 new SellableItemDto(NEGRONI, "Negroni", "DRINK", available),
                 new SellableItemDto(FRIES, "French Fries", "MEAL", true)));
     }
@@ -301,15 +438,166 @@ class OrderServiceIntegrationTest {
                 new CurrentPriceDto(NEGRONI, VENUE_B, new BigDecimal(negroni), false)));
     }
 
+    // --- access ---
+
+    @Test
+    void kitchenScreensNeedASignedInMemberOfTheVenue() {
+        String queue = "/api/v1/kitchen/lines?itemType=DRINK";
+
+        assertThat(callAs(null, HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(401);
+        assertThat(callAs("not-a-token", HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(401);
+        assertThat(callAs(TestTokens.venue(VENUE_B, "STAFF"), HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(403);
+        assertThat(callAs(TestTokens.venue(VENUE_A, "INVENTORY_MANAGER"), HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(403);
+        assertThat(callAs(TestTokens.venue(VENUE_A, "STAFF"), HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(200);
+        assertThat(callAs(TestTokens.platformAdmin(), HttpMethod.GET, queue, VENUE_A, null).status()).isEqualTo(200);
+    }
+
+    @Test
+    void onlyTheVenueAdminManagesTables() {
+        String staff = TestTokens.venue(VENUE_A, "STAFF");
+
+        assertThat(callAs(staff, HttpMethod.POST, "/api/v1/tables", VENUE_A, Map.of("label", "Staff " + unique())).status())
+                .isEqualTo(403);
+        assertThat(callAs(staff, HttpMethod.GET, "/api/v1/table-sessions", VENUE_A, null).status()).isEqualTo(200);
+    }
+
+    @Test
+    void guestsJoinWithoutAnAccountAndGetTheirToken() {
+        String code = createTable(VENUE_A, "Table " + unique());
+
+        Response joined = callAs(null, HttpMethod.POST, "/api/v1/table-sessions/join", VENUE_A, Map.of("tableCode", code));
+        assertThat(joined.status()).isEqualTo(201);
+        String token = joined.json().get("guestToken").asString();
+        assertThat(joined.json().get("status").asString()).isEqualTo("PENDING");
+
+        assertThat(callAs(token, HttpMethod.GET, "/api/v1/participants/me/bill", VENUE_A, null).status()).isEqualTo(200);
+        assertThat(callAs(null, HttpMethod.GET, "/api/v1/participants/me/bill", VENUE_A, null).status()).isEqualTo(401);
+    }
+
+    @Test
+    void aGuestTokenOpensOnlyThatGuestsThingsInThatVenue() {
+        UUID guest = joinNewTable(VENUE_A);
+        String token = TestTokens.guest(VENUE_A, guest);
+        Map<String, Object> order = Map.of("clientOrderId", UUID.randomUUID().toString(), "lines", List.of(Map.of("itemId", NEGRONI, "quantity", 1)));
+
+        assertThat(callAs(token, HttpMethod.GET, "/api/v1/participants/me/bill", VENUE_B, null).status()).isEqualTo(403);
+        assertThat(callAs(token, HttpMethod.GET, "/api/v1/kitchen/lines?itemType=DRINK", VENUE_A, null).status()).isEqualTo(403);
+        assertThat(callAs(token, HttpMethod.GET, "/api/v1/table-sessions", VENUE_A, null).status()).isEqualTo(403);
+        // staff order for a guest through the waiter's screen later (stage 6), not with their own token
+        assertThat(callAs(TestTokens.venue(VENUE_A, "STAFF"), HttpMethod.POST, "/api/v1/orders", VENUE_A, order).status()).isEqualTo(403);
+    }
+
+    @Test
+    void scanningAgainWithTheTokenKeepsTheSameGuest() {
+        String code = createTable(VENUE_A, "Table " + unique());
+        JsonNode first = callAs(null, HttpMethod.POST, "/api/v1/table-sessions/join", VENUE_A, Map.of("tableCode", code)).json();
+
+        JsonNode again = callAs(first.get("guestToken").asString(), HttpMethod.POST, "/api/v1/table-sessions/join", VENUE_A,
+                Map.of("tableCode", code)).json();
+
+        assertThat(again.get("participantId").asString()).isEqualTo(first.get("participantId").asString());
+        assertThat(again.get("guestToken").asString()).isNotBlank();
+    }
+
+    // --- a waiter confirms new guests ---
+
+    @Test
+    void aNewGuestsOrderWaitsForTheWaiter() {
+        String code = createTable(VENUE_A, "Table " + unique());
+        JsonNode joined = joinUnconfirmed(VENUE_A, code);
+        UUID guest = UUID.fromString(joined.get("participantId").asString());
+        String sessionId = joined.get("sessionId").asString();
+
+        JsonNode order = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+
+        assertThat(order.get("status").asString()).isEqualTo("AWAITING_APPROVAL");
+        assertThat(queueOf(VENUE_A, "DRINK", order)).isEmpty();
+        assertThat(decimal(myBill(VENUE_A, guest).get("total"))).isEqualByComparingTo("120.50");
+        assertThat(pendingGuests(VENUE_A, sessionId)).isEqualTo(1);
+        stockWriteOffRetrier.retryPendingWriteOffs();
+        verify(inventoryClient, times(0)).writeOffStock(eq(VENUE_A), argThat(writeOffOf(order)));
+
+        Response approved = call(HttpMethod.POST, "/api/v1/table-sessions/" + sessionId + "/participants/" + guest + "/approve", VENUE_A, null, null);
+
+        assertThat(approved.status()).isEqualTo(200);
+        assertThat(approved.json().get("status").asString()).isEqualTo("APPROVED");
+        assertThat(queueOf(VENUE_A, "DRINK", order)).hasSize(1);
+        verify(inventoryClient, timeout(5000)).writeOffStock(eq(VENUE_A), argThat(writeOffOf(order)));
+        assertThat(pendingGuests(VENUE_A, sessionId)).isZero();
+        // the next order goes straight to the bar
+        JsonNode next = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).json();
+        assertThat(next.get("status").asString()).isEqualTo("PLACED");
+    }
+
+    @Test
+    void aRejectedGuestsOrdersAreCancelledAndTheyCannotOrder() {
+        JsonNode joined = joinUnconfirmed(VENUE_A, createTable(VENUE_A, "Table " + unique()));
+        UUID guest = UUID.fromString(joined.get("participantId").asString());
+        String guestPath = "/api/v1/table-sessions/" + joined.get("sessionId").asString() + "/participants/" + guest;
+        JsonNode held = placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 2)).json();
+
+        Response rejected = callAs(TestTokens.venue(VENUE_A, "STAFF"), HttpMethod.POST, guestPath + "/reject", VENUE_A, null);
+
+        assertThat(rejected.status()).isEqualTo(200);
+        JsonNode bill = rejected.json();
+        assertThat(bill.get("status").asString()).isEqualTo("REJECTED");
+        assertThat(decimal(bill.get("total"))).isEqualByComparingTo("0");
+        JsonNode line = bill.get("orders").get(0).get("lines").get(0);
+        assertThat(line.get("status").asString()).isEqualTo("CANCELLED");
+        assertThat(line.get("cancelReason").asString()).isEqualTo("Guest not confirmed by the staff");
+        assertThat(placeOrder(VENUE_A, guest, UUID.randomUUID().toString(), Map.of(NEGRONI, 1)).status()).isEqualTo(409);
+        assertThat(call(HttpMethod.POST, guestPath + "/approve", VENUE_A, null, null).status()).isEqualTo(409);
+        verify(inventoryClient, times(0)).writeOffStock(eq(VENUE_A), argThat(writeOffOf(held)));
+    }
+
+    @Test
+    void guestsAreConfirmedOnlyAtTheirOwnVisitByTheVenuesStaff() {
+        JsonNode joined = joinUnconfirmed(VENUE_A, createTable(VENUE_A, "Table " + unique()));
+        String guest = joined.get("participantId").asString();
+        String otherSession = joinUnconfirmed(VENUE_A, createTable(VENUE_A, "Table " + unique())).get("sessionId").asString();
+
+        assertThat(call(HttpMethod.POST, "/api/v1/table-sessions/" + otherSession + "/participants/" + guest + "/approve", VENUE_A, null, null)
+                .status()).isEqualTo(404);
+        assertThat(callAs(TestTokens.venue(VENUE_A, "INVENTORY_MANAGER"), HttpMethod.POST,
+                "/api/v1/table-sessions/" + joined.get("sessionId").asString() + "/participants/" + guest + "/approve", VENUE_A, null)
+                .status()).isEqualTo(403);
+    }
+
     private String createTable(long venue, String label) {
         Response response = call(HttpMethod.POST, "/api/v1/tables", venue, null, Map.of("label", label));
         assertThat(response.status()).isEqualTo(201);
         return response.json().get("code").asString();
     }
 
+    // a guest joins and a waiter confirms them, as most tests need
     private Response join(long venue, String code, String name) {
         Map<String, Object> body = name == null ? Map.of("tableCode", code) : Map.of("tableCode", code, "displayName", name);
-        return call(HttpMethod.POST, "/api/v1/table-sessions/join", venue, null, body);
+        Response joined = callAs(null, HttpMethod.POST, "/api/v1/table-sessions/join", venue, body);
+        if (joined.status() == 201) {
+            JsonNode json = joined.json();
+            Response approved = call(HttpMethod.POST, "/api/v1/table-sessions/" + json.get("sessionId").asString()
+                    + "/participants/" + json.get("participantId").asString() + "/approve", venue, null, null);
+            assertThat(approved.status()).isEqualTo(200);
+        }
+        return joined;
+    }
+
+    private JsonNode joinUnconfirmed(long venue, String code) {
+        Response joined = callAs(null, HttpMethod.POST, "/api/v1/table-sessions/join", venue, Map.of("tableCode", code));
+        assertThat(joined.status()).isEqualTo(201);
+        return joined.json();
+    }
+
+    private static ArgumentMatcher<StockConsumptionRequestDto> writeOffOf(JsonNode order) {
+        return request -> request != null && request.orderId().equals(order.get("orderId").asString());
+    }
+
+    private long pendingGuests(long venue, String sessionId) {
+        return StreamSupport.stream(call(HttpMethod.GET, "/api/v1/table-sessions", venue, null, null).json().spliterator(), false)
+                .filter(s -> s.get("sessionId").asString().equals(sessionId))
+                .findFirst()
+                .orElseThrow()
+                .get("pendingGuests").asLong();
     }
 
     private UUID joinNewTable(long venue) {
@@ -327,6 +615,37 @@ class OrderServiceIntegrationTest {
         return call(HttpMethod.GET, "/api/v1/participants/me/bill", venue, participantId, null).json();
     }
 
+    // the station's queue limited to the given orders: other tests share the database
+    private List<JsonNode> queueOf(long venue, String itemType, JsonNode... orders) {
+        Set<String> orderIds = Arrays.stream(orders).map(o -> o.get("orderId").asString()).collect(Collectors.toSet());
+        Response response = call(HttpMethod.GET, "/api/v1/kitchen/lines?itemType=" + itemType, venue, null, null);
+        assertThat(response.status()).isEqualTo(200);
+        return StreamSupport.stream(response.json().spliterator(), false)
+                .filter(line -> orderIds.contains(line.get("orderId").asString()))
+                .toList();
+    }
+
+    private Response changeStatus(long venue, long lineId, String status, String reason) {
+        Map<String, Object> body = reason == null ? Map.of("status", status) : Map.of("status", status, "reason", reason);
+        return call(HttpMethod.PATCH, "/api/v1/kitchen/lines/" + lineId + "/status", venue, null, body);
+    }
+
+    private static long lineId(JsonNode order, String itemName) {
+        return StreamSupport.stream(order.get("lines").spliterator(), false)
+                .filter(line -> line.get("itemName").asString().equals(itemName))
+                .findFirst()
+                .orElseThrow()
+                .get("lineId").asLong();
+    }
+
+    private void awaitStockStatus(JsonNode order, String expected) {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (!expected.equals(orderStockStatus(order)) && System.currentTimeMillis() < deadline) {
+            Thread.onSpinWait();
+        }
+        assertThat(orderStockStatus(order)).isEqualTo(expected);
+    }
+
     private String orderStockStatus(JsonNode order) {
         return call(HttpMethod.GET, "/api/v1/orders/" + order.get("orderId").asString(), VENUE_A, null, null)
                 .json().get("stockStatus").asString();
@@ -340,13 +659,22 @@ class OrderServiceIntegrationTest {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 
+    // with a venue: as its admin; without: anonymous, like a guest
+    // with a guest: as that guest (their token); with only a venue: as its admin; with neither: anonymous
     private Response call(HttpMethod method, String path, Long venue, UUID participantId, Object body) {
+        String token = participantId != null ? TestTokens.guest(venue, participantId)
+                : venue != null ? TestTokens.venue(venue, "ADMIN")
+                : null;
+        return callAs(token, method, path, venue, body);
+    }
+
+    private Response callAs(String token, HttpMethod method, String path, Long venue, Object body) {
         RestClient.RequestBodySpec request = http.method(method).uri(path);
+        if (token != null) {
+            request.header("Authorization", "Bearer " + token);
+        }
         if (venue != null) {
             request.header("X-Tenant-Id", String.valueOf(venue));
-        }
-        if (participantId != null) {
-            request.header("X-Participant-Id", participantId.toString());
         }
         if (body != null) {
             request.contentType(MediaType.APPLICATION_JSON).body(JSON.writeValueAsString(body));

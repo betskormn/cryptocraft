@@ -10,6 +10,7 @@ import com.cryptocraft.orderservice.dao.Order;
 import com.cryptocraft.orderservice.dao.OrderLine;
 import com.cryptocraft.orderservice.dao.SessionParticipant;
 import com.cryptocraft.orderservice.dao.TableSession;
+import com.cryptocraft.orderservice.dao.enums.GuestStatus;
 import com.cryptocraft.orderservice.dao.enums.ItemType;
 import com.cryptocraft.orderservice.dao.enums.OrderStatus;
 import com.cryptocraft.orderservice.dao.enums.SessionStatus;
@@ -26,10 +27,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,36 +59,71 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     // stock write-off and Kafka OrderPlaced happen after commit (OrderPlacedListener)
     private final ApplicationEventPublisher eventPublisher;
+    private final PlatformTransactionManager transactionManager;
 
+    /*
+     * Three steps, so no database connection is held while Inventory and Pricing answer:
+     * a short read (who orders, was this cart already sent), the calls to the other services,
+     * then a short write that re-checks the visit (it may have been closed meanwhile) and stores the order.
+     */
     @Override
-    @Transactional
     public Result placeOrder(UUID participantId, PlaceOrderRequestDto dto) {
-        SessionParticipant participant = sessionParticipantRepository.findByIdWithSession(participantId)
-                .orElseThrow(() -> new EntityNotFoundException("Participant not found"));
-
-        Optional<Order> existing = orderRepository.findByClientOrderIdWithLines(dto.clientOrderId());
-        if (existing.isPresent()) {
-            if (!existing.get().getParticipant().getParticipantId().equals(participantId)) {
-                throw new OrderRejectedException("clientOrderId is already used by another guest");
-            }
+        Optional<OrderResponseDto> alreadyPlaced = transaction(true)
+                .execute(status -> checkCanOrder(participantId, dto.clientOrderId()));
+        if (alreadyPlaced.isPresent()) {
             log.info("Order with clientOrderId:{} was already placed", dto.clientOrderId());
-            return new Result(orderMapper.toDto(existing.get()), false);
-        }
-
-        TableSession session = participant.getSession();
-        if (session.getStatus() != SessionStatus.OPEN) {
-            throw new OrderRejectedException("The visit at this table is closed");
+            return new Result(alreadyPlaced.get(), false);
         }
 
         Map<Long, Integer> quantityByItem = mergeLines(dto);
         Map<Long, SellableItemDto> menu = loadMenu(quantityByItem);
         Map<Long, BigDecimal> prices = lockPrices(quantityByItem, menu);
 
+        return transaction(false).execute(status -> store(participantId, dto, quantityByItem, menu, prices));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponseDto getOrderById(UUID orderId) {
+        return orderRepository.findByIdWithLines(orderId)
+                .map(orderMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException(format("Order with id:%s, not founded", orderId)));
+    }
+
+    // empty when the guest may order; the earlier order when this cart was already sent
+    private Optional<OrderResponseDto> checkCanOrder(UUID participantId, String clientOrderId) {
+        SessionParticipant participant = findParticipant(participantId);
+        Optional<Order> existing = findPlaced(participantId, clientOrderId);
+        if (existing.isPresent()) {
+            return existing.map(orderMapper::toDto);
+        }
+        requireOpen(participant.getSession());
+        requireNotRejected(participant);
+        return Optional.empty();
+    }
+
+    private Result store(UUID participantId, PlaceOrderRequestDto dto, Map<Long, Integer> quantityByItem,
+                         Map<Long, SellableItemDto> menu, Map<Long, BigDecimal> prices) {
+        // locked: a waiter confirming the guest right now either sees this order or confirms before it
+        SessionParticipant participant = sessionParticipantRepository.findByIdForUpdate(participantId)
+                .orElseThrow(() -> new EntityNotFoundException("Participant not found"));
+        // the same cart sent twice at the same moment: the first one won while prices were fetched
+        Optional<Order> existing = findPlaced(participantId, dto.clientOrderId());
+        if (existing.isPresent()) {
+            return new Result(orderMapper.toDto(existing.get()), false);
+        }
+        TableSession session = participant.getSession();
+        requireOpen(session);
+        requireNotRejected(participant);
+        // a guest no waiter has confirmed yet: the order is kept, priced and on the bill, but held
+        boolean confirmed = participant.getStatus() == GuestStatus.APPROVED;
+
         Order order = Order.builder()
                 .session(session)
                 .participant(participant)
                 .clientOrderId(dto.clientOrderId())
-                .status(OrderStatus.PLACED)
+                .status(confirmed ? OrderStatus.PLACED : OrderStatus.AWAITING_APPROVAL)
+                .sentAt(confirmed ? Instant.now() : null)
                 .stockStatus(StockStatus.PENDING)
                 .total(BigDecimal.ZERO)
                 .build();
@@ -105,18 +144,43 @@ public class OrderServiceImpl implements OrderService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
 
         Order saved = orderRepository.save(order);
-        eventPublisher.publishEvent(new OrderPlacedEvent(saved.getOrderId()));
-        log.info("Order:{} placed by participant:{} at table:{}, total:{}",
-                saved.getOrderId(), participantId, session.getTable().getLabel(), saved.getTotal());
+        if (confirmed) {
+            eventPublisher.publishEvent(new OrderPlacedEvent(saved.getOrderId(), TenantContext.getRequired()));
+        }
+        log.info("Order:{} {} by participant:{} at table:{}, total:{}", saved.getOrderId(),
+                confirmed ? "placed" : "held for a waiter", participantId, session.getTable().getLabel(), saved.getTotal());
         return new Result(orderMapper.toDto(saved), true);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public OrderResponseDto getOrderById(UUID orderId) {
-        return orderRepository.findByIdWithLines(orderId)
-                .map(orderMapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException(format("Order with id:%s, not founded", orderId)));
+    private SessionParticipant findParticipant(UUID participantId) {
+        return sessionParticipantRepository.findByIdWithSession(participantId)
+                .orElseThrow(() -> new EntityNotFoundException("Participant not found"));
+    }
+
+    private Optional<Order> findPlaced(UUID participantId, String clientOrderId) {
+        Optional<Order> existing = orderRepository.findByClientOrderIdWithLines(clientOrderId);
+        if (existing.isPresent() && !existing.get().getParticipant().getParticipantId().equals(participantId)) {
+            throw new OrderRejectedException("clientOrderId is already used by another guest");
+        }
+        return existing;
+    }
+
+    private static void requireOpen(TableSession session) {
+        if (session.getStatus() != SessionStatus.OPEN) {
+            throw new OrderRejectedException("The visit at this table is closed");
+        }
+    }
+
+    private static void requireNotRejected(SessionParticipant participant) {
+        if (participant.getStatus() == GuestStatus.REJECTED) {
+            throw new OrderRejectedException("A waiter did not confirm you at this table; please ask the staff");
+        }
+    }
+
+    private TransactionTemplate transaction(boolean readOnly) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setReadOnly(readOnly);
+        return template;
     }
 
     // the same item listed twice is one line with the summed quantity
@@ -138,7 +202,7 @@ public class OrderServiceImpl implements OrderService {
 
     // the venue's menu from Inventory: every item must exist and not be on the stop-list
     private Map<Long, SellableItemDto> loadMenu(Map<Long, Integer> quantityByItem) {
-        Map<Long, SellableItemDto> menu = inventoryClient.getSellableItems(TenantContext.getRequired()).stream()
+        Map<Long, SellableItemDto> menu = inventoryClient.getSellableItems(TenantContext.getRequired(), quantityByItem.keySet()).stream()
                 .collect(Collectors.toMap(SellableItemDto::itemId, Function.identity()));
 
         List<Long> missing = quantityByItem.keySet().stream().filter(id -> !menu.containsKey(id)).toList();

@@ -1,0 +1,34 @@
+plugins {
+    id 'java-library'
+    id 'java-test-fixtures'
+}
+
+group = 'com.cryptocraft'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Staff access for the Spring MVC services: every request carries a JWT issued by identity-service
+// (relayed by the gateway); a service only lists which venue roles may call which paths (ServiceSecurityRules).
+// testFixtures: TestTokens signs tokens with a throwaway key for integration tests.
+dependencies {
+    api platform(project(':platform'))
+    annotationProcessor platform(project(':platform'))
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    api 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+    // provided by the consuming Spring Boot service
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
+
+    testFixturesApi platform(project(':platform'))
+    testFixturesApi 'org.springframework.security:spring-security-oauth2-jose'
+}

@@ -11,5 +11,7 @@ public record TableSessionResponseDto(
         String tableLabel,
         SessionStatus status,
         Instant openedAt,
-        Instant closedAt
+        Instant closedAt,
+        // guests waiting for a waiter to confirm them
+        long pendingGuests
 ) {}

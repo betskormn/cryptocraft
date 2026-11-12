@@ -45,9 +45,13 @@ public class ItemPriceRepository {
                 .list();
     }
 
-    // empty when the item is gone or its venue gets no live prices (not ACTIVE)
+    // empty when the item is gone or its venue gets no live prices (not ACTIVE); reads only that item
     public Optional<ItemPriceResponceDto> findByItemId(Long itemId) {
-        return jdbcClient.sql(SELECT_PRICES + " WHERE item_id = ?")
+        return jdbcClient.sql("""
+                        SELECT item_id, tenant_id, tenant_slug, price_tick_seconds, name, type,
+                               display_order, stopped, base_price, min_price, max_price
+                        FROM internal_item_price(?)
+                        """)
                 .param(itemId)
                 .query(ROW_MAPPER)
                 .optional();

@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: identity-service
+  profiles:
+    # IDE / bootRun without flags; containers set SPRING_PROFILES_ACTIVE=prod
+    default: local
+  datasource:
+    username: ${IDENTITY_DB_USER:cryptocraft_identity}
+    password: ${IDENTITY_DB_PASSWORD:cryptocraft_identity}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      pool-name: identity-hikari
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    # migrations run as the database owner (creates the application role)
+    url: ${spring.datasource.url}
+    user: ${DB_ADMIN_USER:postgres}
+    password: ${DB_ADMIN_PASSWORD:mysecretpassword}
+    parameters:
+      identity_db_user: ${IDENTITY_DB_USER:cryptocraft_identity}
+      identity_db_password: ${IDENTITY_DB_PASSWORD:cryptocraft_identity}
+  docker:
+    compose:
+      enabled: false
+
+identity:
+  # the URL browsers use for this server; every token's "iss"
+  issuer: ${IDENTITY_ISSUER:http://localhost:8086}
+  access-token-ttl: 10m
+  refresh-token-ttl: 12h
+  guest-token-ttl: 12h
+  gateway-client:
+    client-id: cryptocraft-gateway
+    secret: ${GATEWAY_CLIENT_SECRET:gateway-dev-secret}
+    # the admin UI's origin: Vite (dev) and nginx (prod) pass these paths to the gateway
+    redirect-uri: ${PUBLIC_URL:http://localhost:5173}/login/oauth2/code/identity
+    post-logout-redirect-uri: ${PUBLIC_URL:http://localhost:5173}/
+  service-clients:
+    - client-id: order-service
+      secret: ${ORDER_CLIENT_SECRET:order-dev-secret}
+  # first platform admin of a new installation; change the password after the first sign-in
+  bootstrap-admin:
+    email: ${BOOTSTRAP_ADMIN_EMAIL:admin@cryptocraft.local}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:admin12345}
+    display-name: Platform admin
+
+server:
+  port: 8086
+  servlet:
+    session:
+      # the sign-in page's session; staff stay signed in through their refresh token (identity.refresh-token-ttl)
+      timeout: 30m
+
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+  instance:
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

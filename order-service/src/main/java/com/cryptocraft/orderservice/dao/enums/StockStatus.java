@@ -17,7 +17,9 @@ public enum StockStatus {
 
     // recipe write-off not confirmed by Inventory yet (retried by StockWriteOffRetrier)
     PENDING(1),
-    WRITTEN_OFF(2);
+    WRITTEN_OFF(2),
+    // Inventory refused it for good (4xx); not retried, stock has to be corrected by hand
+    FAILED(3);
 
     private final int id;
 

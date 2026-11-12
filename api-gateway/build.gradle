@@ -26,6 +26,8 @@ dependencies {
     runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'
     runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-x86_64'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // signs staff in at identity-service (authorization code + PKCE) and keeps their tokens in the session
+    implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

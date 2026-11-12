@@ -1,60 +1,49 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, IconButton, MenuItem, Select, Tooltip, Typography } from "@mui/material";
 import AddBusinessOutlinedIcon from "@mui/icons-material/AddBusinessOutlined";
 import LiveTvOutlinedIcon from "@mui/icons-material/LiveTvOutlined";
 
-import { createTenant, getAllTenants, type TenantRequestDto } from "../api/tenants.api";
+import { createTenant, type TenantRequestDto } from "../api/tenants.api";
 import { getApiErrorMessage } from "../api/error";
-import { getCurrentTenantId, setCurrentTenantId } from "../tenant/currentTenant";
+import { useAuth } from "../auth/AuthContext";
 import TenantCreateDialog from "./TenantCreateDialog";
 
-const TENANTS_KEY = ["platform-tenants"];
 // empty = same origin: Vite (dev) and nginx (prod) proxy /tv.html and /ws to the gateway
 const TV_BASE_URL = (import.meta.env.VITE_TV_BASE_URL as string | undefined) ?? "";
 
+// the venues of the signed-in person; only a platform admin creates new ones
 export default function TenantSwitcher() {
     const queryClient = useQueryClient();
-    const [currentId, setCurrentId] = useState<string | null>(getCurrentTenantId());
+    const { me, venues, venue: current, switchVenue } = useAuth();
     const [createOpen, setCreateOpen] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
-
-    const tenantsQuery = useQuery({ queryKey: TENANTS_KEY, queryFn: getAllTenants });
-    const tenants = tenantsQuery.data ?? [];
-    const current = tenants.find((t) => String(t.tenantId) === currentId);
-
-    // every other query is venue data fetched with the previous X-Tenant-Id
-    const switchTo = async (tenantId: string) => {
-        setCurrentTenantId(tenantId);
-        setCurrentId(tenantId);
-        await queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== TENANTS_KEY[0] });
-    };
 
     const createMutation = useMutation({
         mutationFn: (dto: TenantRequestDto) => createTenant(dto),
         onSuccess: async (created) => {
             setCreateOpen(false);
             setCreateError(null);
-            await queryClient.invalidateQueries({ queryKey: TENANTS_KEY });
-            await switchTo(String(created.tenantId));
+            await queryClient.invalidateQueries({ queryKey: ["venues"] });
+            await switchVenue(created.tenantId);
         },
         onError: (err) => setCreateError(getApiErrorMessage(err, "Failed to create venue")),
     });
 
     return (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto" }}>
-            <Typography variant="body2" sx={{ opacity: 0.7, display: { xs: "none", sm: "block" } }}>
+            <Typography variant="body2" sx={{ opacity: 0.7, display: { xs: "none", md: "block" } }}>
                 Venue
             </Typography>
             <Select
                 size="small"
                 value={current ? String(current.tenantId) : ""}
                 displayEmpty
-                onChange={(e) => switchTo(String(e.target.value))}
-                renderValue={() => (current ? current.name : tenantsQuery.isLoading ? "Loading…" : "Select venue")}
-                sx={{ minWidth: 200 }}
+                onChange={(e) => void switchVenue(Number(e.target.value))}
+                renderValue={() => (current ? current.name : "No venue")}
+                sx={{ minWidth: { xs: 140, sm: 200 } }}
             >
-                {tenants.map((t) => (
+                {venues.map((t) => (
                     <MenuItem key={t.tenantId} value={String(t.tenantId)} disabled={t.status === "SUSPENDED"}>
                         <Box>
                             <Typography variant="body2">{t.name}</Typography>
@@ -80,17 +69,20 @@ export default function TenantSwitcher() {
                 </span>
             </Tooltip>
 
-            <Button
-                size="small"
-                variant="outlined"
-                startIcon={<AddBusinessOutlinedIcon />}
-                onClick={() => {
-                    setCreateError(null);
-                    setCreateOpen(true);
-                }}
-            >
-                New venue
-            </Button>
+            {me.platformAdmin ? (
+                <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<AddBusinessOutlinedIcon />}
+                    onClick={() => {
+                        setCreateError(null);
+                        setCreateOpen(true);
+                    }}
+                    sx={{ display: { xs: "none", sm: "inline-flex" } }}
+                >
+                    New venue
+                </Button>
+            ) : null}
 
             {createOpen && (
                 <TenantCreateDialog

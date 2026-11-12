@@ -4,6 +4,27 @@ spring:
   profiles:
     # IDE / bootRun without flags; containers set SPRING_PROFILES_ACTIVE=prod
     default: local
+  security:
+    oauth2:
+      client:
+        # staff sign in at identity-service; the browser only gets the gateway's session cookie,
+        # tokens stay here and are added to every API call (SessionTokenRelayFilter)
+        registration:
+          identity:
+            provider: identity
+            client-id: cryptocraft-gateway
+            client-secret: ${GATEWAY_CLIENT_SECRET:gateway-dev-secret}
+            authorization-grant-type: authorization_code
+            # the admin UI's origin: Vite (dev) and nginx (prod) pass /login/oauth2 and /oauth2 to the gateway
+            redirect-uri: ${PUBLIC_URL:http://localhost:5173}/login/oauth2/code/identity
+            scope: openid,profile
+        provider:
+          identity:
+            # the browser goes to the sign-in page; tokens and keys are fetched inside the network
+            authorization-uri: ${IDENTITY_PUBLIC_URL:http://localhost:8086}/oauth2/authorize
+            token-uri: ${IDENTITY_INTERNAL_URL:http://localhost:8086}/oauth2/token
+            jwk-set-uri: ${IDENTITY_INTERNAL_URL:http://localhost:8086}/oauth2/jwks
+            user-name-attribute: sub
   cloud:
     gateway:
       server:
@@ -31,6 +52,19 @@ spring:
               uri: lb://INVENTORY-SERVICE
               predicates:
                 - Path=/api/v1/platform/tenants/**
+            - id: inventory-venues
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/v1/venues/**
+            # the signed-in person and the venue's staff
+            - id: identity-me
+              uri: lb://IDENTITY-SERVICE
+              predicates:
+                - Path=/api/v1/me/**
+            - id: identity-staff
+              uri: lb://IDENTITY-SERVICE
+              predicates:
+                - Path=/api/v1/staff/**
             # tables, visits, guests' bills and orders
             - id: order-tables
               uri: lb://ORDER-SERVICE
@@ -48,6 +82,10 @@ spring:
               uri: lb://ORDER-SERVICE
               predicates:
                 - Path=/api/v1/orders/**
+            - id: order-kitchen
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/v1/kitchen/**
             # live prices for TV screens and guests; the TV page builds its socket URL from its own host
             - id: price-streaming-ws
               uri: lb:ws://PRICE-STREAMING-SERVICE
@@ -72,6 +110,16 @@ eureka:
 
 server:
   port: 8765
+  reactive:
+    session:
+      # a signed-in browser; tokens inside are refreshed while it is used (identity.refresh-token-ttl)
+      timeout: 12h
+
+cryptocraft:
+  gateway:
+    # where the admin UI is opened; staff land here after signing in or out
+    public-url: ${PUBLIC_URL:http://localhost:5173}
+    identity-public-url: ${IDENTITY_PUBLIC_URL:http://localhost:8086}
 
 management:
   endpoints:

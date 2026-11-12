@@ -1,7 +1,9 @@
 package com.cryptocraft.orderservice.dao;
 
 import com.cryptocraft.orderservice.config.converters.ItemTypeConverter;
+import com.cryptocraft.orderservice.config.converters.LineStatusConverter;
 import com.cryptocraft.orderservice.dao.enums.ItemType;
+import com.cryptocraft.orderservice.dao.enums.LineStatus;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;
@@ -10,11 +12,13 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
  * One item of an order with its price locked when the order was sent. Name and type are copied, so
- * the bill and the kitchen screen do not depend on later menu changes.
+ * the bill and the kitchen screen do not depend on later menu changes. The kitchen/bar moves the line
+ * through {@link LineStatus}.
  */
 @Getter
 @Setter
@@ -57,6 +61,19 @@ public class OrderLine implements HasTenant, Serializable {
 
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal;
+
+    // kitchen/bar screen state; a CANCELLED line is not charged
+    @Column(nullable = false)
+    @Convert(converter = LineStatusConverter.class)
+    @ToString.Include
+    @Builder.Default
+    private LineStatus status = LineStatus.NEW;
+
+    @Column(name = "status_changed_at")
+    private Instant statusChangedAt;
+
+    @Column(name = "cancel_reason")
+    private String cancelReason;
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;

@@ -1,0 +1,31 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.cryptocraft'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Infrastructure shared by the Spring MVC services (inventory, order): RFC 9457 error responses,
+// JPA auditing base class, JSON serializer for Kafka messages.
+dependencies {
+    compileOnly platform(project(':platform'))
+    annotationProcessor platform(project(':platform'))
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // provided by the consuming Spring Boot service
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.springframework.boot:spring-boot-starter-data-jpa'
+    compileOnly 'org.apache.kafka:kafka-clients'
+    compileOnly 'org.slf4j:slf4j-api'
+}

@@ -1,5 +1,5 @@
-// Until there is a login, the admin works with the venue chosen in the switcher (kept in localStorage).
-// ?tenant=<id> in the URL selects a venue once on load; VITE_TENANT_ID is the fallback.
+// The venue the admin works in (kept in localStorage); every request sends it as X-Tenant-Id and the
+// services check it against the signed-in person's token. ?tenant=<id> in the URL selects a venue on load.
 
 const STORAGE_KEY = "tenantId";
 
@@ -26,6 +26,7 @@ export function getCurrentTenantId(): string | null {
         // storage blocked: fall through to the env default
     }
 
+    // the first venue to open when the person has it (otherwise AuthProvider picks one of theirs)
     const envTid = import.meta.env.VITE_TENANT_ID as string | undefined;
     return envTid ? String(envTid) : null;
 }

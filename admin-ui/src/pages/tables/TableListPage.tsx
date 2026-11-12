@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import {
     createTable,
@@ -29,9 +30,14 @@ import {
 } from "../../api/tables.api";
 import { getApiErrorMessage } from "../../api/error";
 import TableDialog from "../../components/TableDialog";
+import { useAuth } from "../../auth/AuthContext";
+
+// what the table's QR code opens: the guest page of this venue and table
+const guestLink = (tenantId: number, code: string) => `${window.location.origin}/g/${tenantId}/${code}`;
 
 export default function TableListPage() {
     const queryClient = useQueryClient();
+    const { venue } = useAuth();
 
     // null: closed; without table: create; with table: edit
     const [dialog, setDialog] = useState<{ table?: VenueTableResponseDto } | null>(null);
@@ -97,10 +103,27 @@ export default function TableListPage() {
                                         <Box component="span" sx={{ fontFamily: "monospace", letterSpacing: 1 }}>
                                             {t.code}
                                         </Box>
-                                        <Tooltip title="Copy">
-                                            <IconButton size="small" onClick={() => navigator.clipboard?.writeText(t.code)}>
+                                        <Tooltip title="Copy the guest link (what the QR code opens)">
+                                            <IconButton
+                                                size="small"
+                                                disabled={!venue}
+                                                onClick={() => venue && navigator.clipboard?.writeText(guestLink(venue.tenantId, t.code))}
+                                            >
                                                 <ContentCopyIcon fontSize="inherit" />
                                             </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Open the guest page">
+                                            <span>
+                                                <IconButton
+                                                    size="small"
+                                                    disabled={!venue || !t.active}
+                                                    href={venue ? guestLink(venue.tenantId, t.code) : ""}
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                >
+                                                    <OpenInNewIcon fontSize="inherit" />
+                                                </IconButton>
+                                            </span>
                                         </Tooltip>
                                     </Stack>
                                 </TableCell>

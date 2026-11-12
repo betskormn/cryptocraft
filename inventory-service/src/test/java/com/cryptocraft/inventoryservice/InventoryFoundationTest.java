@@ -86,6 +86,27 @@ class InventoryFoundationTest extends AbstractInventoryIntegrationTest {
     }
 
     @Test
+    void sellableItemsCanBeLimitedToGivenIds() {
+        long lime = createProduct("Lime", "PIECE", "10");
+        long lemonade = createItem("Lemonade", List.of(line(lime, "1")), null);
+        createItem("Other", List.of(line(lime, "1")), null);
+
+        List<Long> ids = StreamSupport.stream(
+                        call(HttpMethod.GET, "/api/v1/items/sellable?itemIds=" + lemonade + ",999999", venue, null).json().spliterator(), false)
+                .map(node -> node.get("itemId").asLong())
+                .toList();
+        assertThat(ids).containsExactly(lemonade);
+    }
+
+    @Test
+    void portionEstimateDoesNotOverflow() {
+        long salt = createProduct("Salt", "GRAMS", "900000000");
+        long item = createItem("Pinch", List.of(line(salt, "0.001")), null);
+
+        assertThat(sellable(item).get("portions").asInt()).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
     void internalPricesCarryMenuOrderAndStopList() {
         long lime = createProduct("Lime", "PIECE", "10");
         long item = createItem("Lemonade", List.of(line(lime, "1")), 7);

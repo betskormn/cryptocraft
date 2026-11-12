@@ -15,6 +15,7 @@ import java.util.List;
 @Component
 public class PricingClient {
 
+    // IllegalStateException in the catch: the load balancer's "no instances available" (service starting up)
     private final RestClient restClient;
 
     public PricingClient(@LoadBalanced RestClient.Builder loadBalancedRestClientBuilder,
@@ -29,7 +30,7 @@ public class PricingClient {
                     .uri(uri -> uri.path("/internal/current-prices").queryParam("itemIds", itemIds).build())
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
-        } catch (RestClientException e) {
+        } catch (RestClientException | IllegalStateException e) {
             throw new DownstreamUnavailableException("Prices are not available right now", e);
         }
     }

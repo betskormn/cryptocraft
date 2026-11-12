@@ -33,6 +33,15 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     List<Item> findAllWithProducts();
 
     @Query("""
+           select distinct i
+           from Item i
+           left join fetch i.productLinks l
+           left join fetch l.product p
+           where i.itemId in :itemIds
+           """)
+    List<Item> findAllWithProductsByIds(@Param("itemIds") Collection<Long> itemIds);
+
+    @Query("""
            select new com.cryptocraft.inventoryservice.repositories.projections.RecipeLine(
                l.item.itemId, l.product.productId, l.quantity)
            from ItemProduct l

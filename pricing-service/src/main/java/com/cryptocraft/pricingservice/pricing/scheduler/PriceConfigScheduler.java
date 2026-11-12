@@ -33,7 +33,7 @@ public class PriceConfigScheduler {
             return;
         }
         inventoryClient.getAllPrices().ifPresent(prices -> {
-            cache.update(prices);
+            cache.update(prices, now);
             lastRefreshMillis = now;
             log.info("Price configuration refreshed: {} items", prices.size());
         });

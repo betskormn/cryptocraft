@@ -66,7 +66,7 @@ public class TenantFilter extends OncePerRequestFilter {
         }
     }
 
-    // TODO: take the tenant from the JWT once the gateway validates tokens; until then the header is trusted (demo only)
+    // the venue being worked in; staff tokens are checked against it by security-support (VenueAccess)
     private Long resolveTenantId(HttpServletRequest request) {
         String header = request.getHeader(TENANT_HEADER);
         if (header == null || header.isBlank()) {

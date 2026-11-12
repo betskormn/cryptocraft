@@ -4,6 +4,7 @@ import {
     Alert,
     Box,
     Button,
+    Chip,
     CircularProgress,
     Paper,
     Stack,
@@ -55,7 +56,8 @@ export default function VisitListPage() {
                     Visits
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Tables with guests right now. Bills are split per guest; close a visit when it is paid.
+                    Tables with guests right now. Confirm new guests at the table, so their orders go to the kitchen and bar.
+                    Bills are split per guest; close a visit when it is paid.
                 </Typography>
             </Stack>
 
@@ -73,12 +75,22 @@ export default function VisitListPage() {
                     <TableBody>
                         {sessions.map((s) => (
                             <TableRow key={s.sessionId} hover>
-                                <TableCell sx={{ fontWeight: 700 }}>{s.tableLabel}</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>
+                                    {s.tableLabel}
+                                    {s.pendingGuests > 0 ? (
+                                        <Chip
+                                            size="small"
+                                            color="warning"
+                                            label={`${s.pendingGuests} to confirm`}
+                                            sx={{ ml: 1.5, fontWeight: 700 }}
+                                        />
+                                    ) : null}
+                                </TableCell>
                                 <TableCell sx={{ color: "text.secondary" }}>{since(s.openedAt)}</TableCell>
                                 <TableCell align="right">
                                     <Button
                                         size="small"
-                                        variant="outlined"
+                                        variant={s.pendingGuests > 0 ? "contained" : "outlined"}
                                         onClick={() => {
                                             setCloseError(null);
                                             setSelected(s.sessionId);

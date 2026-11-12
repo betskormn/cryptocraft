@@ -11,3 +11,7 @@ eureka:
       defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka}
   instance:
     prefer-ip-address: true
+
+cryptocraft:
+  security:
+    jwk-set-uri: ${IDENTITY_JWKS_URL:http://identity-service:8086/oauth2/jwks}

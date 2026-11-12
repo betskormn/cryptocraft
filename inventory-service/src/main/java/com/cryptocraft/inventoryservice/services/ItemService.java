@@ -5,6 +5,7 @@ import com.cryptocraft.inventoryservice.controllers.dto.response.ItemPriceRespon
 import com.cryptocraft.inventoryservice.controllers.dto.response.ItemResponseDto;
 import com.cryptocraft.inventoryservice.controllers.dto.response.SellableItemResponseDto;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ItemService {
@@ -21,7 +22,8 @@ public interface ItemService {
 
     ItemResponseDto setStopped(Long id, boolean stopped);
 
-    List<SellableItemResponseDto> getSellableItems();
+    // all items of the venue when itemIds is null
+    List<SellableItemResponseDto> getSellableItems(Collection<Long> itemIds);
 
     List<ItemPriceResponceDto> getAllPrices();
 }

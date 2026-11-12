@@ -2,6 +2,7 @@ package com.cryptocraft.orderservice.dao;
 
 import com.cryptocraft.orderservice.config.converters.SessionStatusConverter;
 import com.cryptocraft.orderservice.dao.enums.SessionStatus;
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;

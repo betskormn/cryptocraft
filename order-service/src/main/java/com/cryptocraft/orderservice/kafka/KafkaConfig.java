@@ -1,5 +1,6 @@
 package com.cryptocraft.orderservice.kafka;
 
+import com.cryptocraft.support.kafka.JacksonSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +19,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ProducerFactory<String, OrderPlacedMessage> producerFactory() {
+    public ProducerFactory<String, Object> producerFactory() {
         return new DefaultKafkaProducerFactory<>(
                 kafkaProperties.buildProducerProperties(),
                 new StringSerializer(),
@@ -27,8 +28,8 @@ public class KafkaConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, OrderPlacedMessage> kafkaTemplate(
-            ProducerFactory<String, OrderPlacedMessage> producerFactory
+    public KafkaTemplate<String, Object> kafkaTemplate(
+            ProducerFactory<String, Object> producerFactory
     ) {
         return new KafkaTemplate<>(producerFactory);
     }

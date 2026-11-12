@@ -59,13 +59,17 @@ public class ItemController {
 
     @Operation(summary = "Get sellable items",
             description = "Items in menu order with stop-list state and an estimate of portions left in stock; "
-                    + "the estimate is a warning only and never blocks an order")
+                    + "the estimate is a warning only and never blocks an order. "
+                    + "With itemIds only those items are returned (unknown ids are left out)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Items in menu order")
     })
     @GetMapping("/sellable")
-    public ResponseEntity<List<SellableItemResponseDto>> getSellableItems() {
-        return ResponseEntity.ok(itemService.getSellableItems());
+    public ResponseEntity<List<SellableItemResponseDto>> getSellableItems(
+            @Parameter(description = "Only these items, e.g. the lines of an order", example = "1,2")
+            @RequestParam(required = false) List<Long> itemIds
+    ) {
+        return ResponseEntity.ok(itemService.getSellableItems(itemIds));
     }
 
     @Operation(summary = "Get item by id")

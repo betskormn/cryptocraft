@@ -3,6 +3,7 @@ package com.cryptocraft.inventoryservice.dao;
 import com.cryptocraft.inventoryservice.config.converters.TypeConverter;
 import com.cryptocraft.inventoryservice.dao.embedded.ItemProductId;
 import com.cryptocraft.inventoryservice.dao.enums.Type;
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;

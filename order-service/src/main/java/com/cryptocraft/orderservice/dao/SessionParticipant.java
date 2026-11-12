@@ -1,5 +1,7 @@
 package com.cryptocraft.orderservice.dao;
 
+import com.cryptocraft.orderservice.dao.enums.GuestStatus;
+import com.cryptocraft.support.jpa.AuditingEntity;
 import com.cryptocraft.tenant.HasTenant;
 import com.cryptocraft.tenant.TenantEntityListener;
 import jakarta.persistence.*;
@@ -7,12 +9,14 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
  * A guest in a table session. Until Identity Service exists the participant id is the guest's
- * anonymous token (X-Participant-Id): each guest orders and pays for themselves.
+ * guest token (issued when joining the table): each guest orders and pays for themselves. A new guest's orders
+ * wait until a waiter confirms the guest ({@link GuestStatus}).
  */
 @Getter
 @Setter
@@ -38,6 +42,15 @@ public class SessionParticipant extends AuditingEntity implements HasTenant, Ser
     @Column(name = "display_name")
     @ToString.Include
     private String displayName;
+
+    @Builder.Default
+    @Column(nullable = false)
+    @ToString.Include
+    private GuestStatus status = GuestStatus.PENDING;
+
+    // when a waiter confirmed or rejected the guest
+    @Column(name = "decided_at")
+    private Instant decidedAt;
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;

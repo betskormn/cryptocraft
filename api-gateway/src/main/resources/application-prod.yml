@@ -5,3 +5,12 @@ eureka:
       defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka}
   instance:
     prefer-ip-address: true
+
+spring:
+  security:
+    oauth2:
+      client:
+        provider:
+          identity:
+            token-uri: ${IDENTITY_INTERNAL_URL:http://identity-service:8086}/oauth2/token
+            jwk-set-uri: ${IDENTITY_INTERNAL_URL:http://identity-service:8086}/oauth2/jwks
